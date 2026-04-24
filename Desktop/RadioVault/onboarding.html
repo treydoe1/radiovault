@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RadioVault - Setup</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' data: blob: file:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https: http:; object-src 'none'; base-uri 'none'; form-action 'self'">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --primary: #522D80; --primary-light: #7B52AB; --accent: #F66733;
+    --surface: #f7f8fc; --surface-low: #f0f2f8; --white: #ffffff;
+    --text: #1a1c24; --muted: #4a4d5a;
+    --border: rgba(26,28,36,0.08); --outline: rgba(26,28,36,0.12);
+    --success: #2E7D32; --error: #C62828;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: var(--surface); color: var(--text);
+    display: flex; align-items: center; justify-content: center;
+    min-height: 100vh; -webkit-app-region: drag;
+  }
+  body * { -webkit-app-region: no-drag; }
+  .card {
+    background: var(--white); border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.08);
+    padding: 48px; max-width: 520px; width: 100%; text-align: center;
+  }
+  h1 { font-family: 'Space Grotesk', sans-serif; font-size: 28px; font-weight: 800; text-transform: uppercase; color: var(--primary); margin-bottom: 8px; }
+  .subtitle { font-size: 14px; color: var(--muted); margin-bottom: 32px; }
+  .step { display: none; }
+  .step.active { display: block; }
+  .step h2 { font-family: 'Space Grotesk', sans-serif; font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+  .step p { font-size: 13px; color: var(--muted); margin-bottom: 20px; line-height: 1.5; }
+  input[type="text"], input[type="password"] {
+    width: 100%; padding: 10px 14px; border: 1.5px solid var(--outline);
+    border-radius: 8px; font-size: 13px; background: var(--surface-low);
+    outline: none; margin-bottom: 12px;
+  }
+  input:focus { border-color: var(--primary); }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 10px 24px; border: none; border-radius: 8px;
+    font-size: 14px; font-weight: 600; cursor: pointer; margin: 4px;
+  }
+  .btn-primary { background: var(--primary); color: white; }
+  .btn-primary:hover { background: var(--primary-light); }
+  .btn-outline { background: transparent; border: 1.5px solid var(--outline); color: var(--text); }
+  .btn-outline:hover { background: var(--surface-low); }
+  .btn-accent { background: var(--accent); color: white; }
+  .btn-accent:hover { opacity: 0.9; }
+  .btn:disabled { opacity: 0.4; cursor: default; }
+  .status-msg { font-size: 12px; margin-top: 10px; min-height: 20px; }
+  .status-msg.ok { color: var(--success); }
+  .status-msg.err { color: var(--error); }
+  .step-indicator { display: flex; justify-content: center; gap: 8px; margin-bottom: 24px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--outline); }
+  .dot.active { background: var(--primary); }
+  .dot.done { background: var(--success); }
+  label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; text-align: left; }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <h1>RadioVault</h1>
+  <div class="subtitle">Radio Broadcast Archive & Clipping Tool</div>
+
+  <div class="step-indicator">
+    <div class="dot active" id="dot-1"></div>
+    <div class="dot" id="dot-2"></div>
+    <div class="dot" id="dot-3"></div>
+    <div class="dot" id="dot-4"></div>
+  </div>
+
+  <!-- STEP 1: Choose setup method -->
+  <div class="step active" id="step-1">
+    <h2>Get Started</h2>
+    <p>Import a team config to connect to your team's shared database, or set up manually with an RSS feed.</p>
+    <div style="display:flex; flex-direction:column; gap:10px; margin-top:16px;">
+      <button class="btn btn-primary" onclick="importTeamConfig()" style="width:100%;">Import Team Config</button>
+      <button class="btn btn-outline" onclick="goStep(2)" style="width:100%;">Set Up Manually</button>
+      <button class="btn btn-outline" onclick="finish()" style="width:100%; opacity:0.6;">Skip Setup</button>
+    </div>
+    <div class="status-msg" id="team-status"></div>
+  </div>
+
+  <!-- STEP 2: RSS Feed (manual path) -->
+  <div class="step" id="step-2">
+    <h2>Add an RSS Feed</h2>
+    <p>Paste the podcast or RSS feed URL for the radio broadcasts you want to archive and search.</p>
+    <label>Feed URL</label>
+    <input type="text" id="feed-url" placeholder="https://feeds.example.com/tiger-network.xml" />
+    <div>
+      <button class="btn btn-primary" id="btn-add-feed" onclick="addFeed()">Add Feed</button>
+      <button class="btn btn-outline" id="btn-next-2" onclick="goStep(3)" disabled>Next</button>
+      <button class="btn btn-outline" onclick="goStep(3)">Skip</button>
+    </div>
+    <div class="status-msg" id="feed-status"></div>
+  </div>
+
+  <!-- STEP 3: API Keys -->
+  <div class="step" id="step-3">
+    <h2>API Keys (Optional)</h2>
+    <p>For transcription, add a Groq API key (or use Local Whisper). For AI summaries, add an Anthropic key. You can add these later in Settings.</p>
+    <label>Groq API Key</label>
+    <input type="password" id="groq-key" placeholder="gsk_..." />
+    <label>Anthropic API Key</label>
+    <input type="password" id="anthropic-key" placeholder="sk-ant-..." />
+    <div>
+      <button class="btn btn-outline" onclick="goStep(2)">Back</button>
+      <button class="btn btn-primary" onclick="saveKeysAndNext()">Save & Next</button>
+      <button class="btn btn-outline" onclick="goStep(4)">Skip</button>
+    </div>
+    <div class="status-msg" id="keys-status"></div>
+  </div>
+
+  <!-- STEP 4: Done -->
+  <div class="step" id="step-4">
+    <h2>Ready to Go</h2>
+    <p>You can add feeds, API keys, and team config anytime in Settings.</p>
+    <button class="btn btn-accent" onclick="finish()">Launch RadioVault</button>
+  </div>
+</div>
+
+<script>
+function goStep(n) {
+  document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+  document.getElementById('step-' + n).classList.add('active');
+  for (let i = 1; i <= 4; i++) {
+    const dot = document.getElementById('dot-' + i);
+    dot.classList.remove('active', 'done');
+    if (i < n) dot.classList.add('done');
+    else if (i === n) dot.classList.add('active');
+  }
+}
+
+async function importTeamConfig() {
+  const status = document.getElementById('team-status');
+  status.textContent = 'Importing...';
+  status.className = 'status-msg';
+  const result = await window.electronAPI.loadTeamConfig();
+  if (result.ok) {
+    status.textContent = result.msg;
+    status.className = 'status-msg ok';
+    // Mark setup as done so app.html loads next time
+    const settings = (await window.electronAPI.readSettings()) || {};
+    settings._setup_complete = true;
+    await window.electronAPI.writeSettings(settings);
+    setTimeout(() => goStep(4), 1000);
+  } else {
+    status.textContent = result.msg;
+    status.className = 'status-msg err';
+  }
+}
+
+async function addFeed() {
+  const url = document.getElementById('feed-url').value.trim();
+  if (!url) return;
+
+  const status = document.getElementById('feed-status');
+  status.textContent = 'Validating feed...';
+  status.className = 'status-msg';
+
+  const result = await window.electronAPI.addFeed(url);
+  if (result.success) {
+    status.textContent = 'Feed added: ' + (result.feed?.title || url);
+    status.className = 'status-msg ok';
+    document.getElementById('btn-next-2').disabled = false;
+  } else {
+    status.textContent = 'Error: ' + result.error;
+    status.className = 'status-msg err';
+  }
+}
+
+async function saveKeysAndNext() {
+  const groqVal = document.getElementById('groq-key').value.trim();
+  const anthropicVal = document.getElementById('anthropic-key').value.trim();
+  const status = document.getElementById('keys-status');
+  let saved = [];
+
+  if (groqVal) {
+    const ok = await window.electronAPI.setGroqKey(groqVal);
+    if (ok) saved.push('Groq');
+  }
+  if (anthropicVal) {
+    const ok = await window.electronAPI.setAnthropicKey(anthropicVal);
+    if (ok) saved.push('Anthropic');
+  }
+
+  if (saved.length) {
+    status.textContent = saved.join(' & ') + ' key(s) saved to Keychain.';
+    status.className = 'status-msg ok';
+  }
+  setTimeout(() => goStep(4), 500);
+}
+
+async function finish() {
+  const settings = (await window.electronAPI.readSettings()) || {};
+  settings._setup_complete = true;
+  await window.electronAPI.writeSettings(settings);
+  window.location.href = 'app.html';
+}
+</script>
+</body>
+</html>

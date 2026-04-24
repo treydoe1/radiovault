@@ -1,0 +1,2373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RadioVault</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' data: blob: file: https: http:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: file: https:; media-src 'self' data: blob: file: https:; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https: http:; object-src 'none'; base-uri 'none'; form-action 'self'">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --primary:              #522D80;
+    --primary-light:        #7B52AB;
+    --primary-container:    #3D1F63;
+    --accent:               #F66733;
+    --accent-light:         #FF8F5C;
+    --surface:              #f7f8fc;
+    --surface-low:          #f0f2f8;
+    --surface-container:    #e4e7f0;
+    --surface-high:         #dde0ea;
+    --on-surface:           #1a1c24;
+    --on-surface-variant:   #4a4d5a;
+    --outline:              rgba(26,28,36,0.12);
+    --text:                 #1a1c24;
+    --muted:                #4a4d5a;
+    --border:               rgba(26,28,36,0.08);
+    --white:                #ffffff;
+    --clip-highlight:       rgba(82,45,128,0.12);
+    --key-moment:           rgba(246,103,51,0.15);
+    --search-match:         rgba(246,103,51,0.35);
+    --playing-segment:      rgba(82,45,128,0.08);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--surface);
+    color: var(--on-surface);
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  html.is-fullscreen .sidebar { padding-top: 0; }
+  html:not(.is-fullscreen) .sidebar { padding-top: 36px; }
+  html:not(.is-fullscreen) .main-area { padding-top: 36px; }
+
+  /* ── SIDEBAR ── */
+  .sidebar {
+    width: 240px;
+    min-width: 240px;
+    background: linear-gradient(180deg, #1a1c28 0%, #22243a 100%);
+    color: white;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    -webkit-app-region: drag;
+  }
+
+  .sidebar-header {
+    padding: 20px 18px 12px;
+    -webkit-app-region: drag;
+  }
+
+  .sidebar-header h1 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 20px;
+    font-weight: 700;
+    color: #fff;
+  }
+
+  .sidebar-section {
+    padding: 8px 0;
+  }
+
+  .sidebar-section-title {
+    padding: 6px 18px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: rgba(255,255,255,0.4);
+  }
+
+  .sidebar-item {
+    padding: 8px 18px;
+    font-size: 13px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    -webkit-app-region: no-drag;
+    transition: background 0.15s;
+  }
+
+  .sidebar-item:hover { background: rgba(255,255,255,0.06); }
+  .sidebar-item.active { background: rgba(255,255,255,0.1); color: var(--accent-light); }
+
+  .sidebar-item .count {
+    font-size: 11px;
+    color: rgba(255,255,255,0.35);
+  }
+
+  .sidebar-footer {
+    margin-top: auto;
+    padding: 12px 18px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+    -webkit-app-region: no-drag;
+  }
+
+  .sidebar-footer a {
+    color: rgba(255,255,255,0.5);
+    text-decoration: none;
+    font-size: 12px;
+    cursor: pointer;
+  }
+
+  .sidebar-footer a:hover { color: rgba(255,255,255,0.8); }
+
+  /* ── MAIN AREA ── */
+  .main-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── TOP BAR ── */
+  .top-bar {
+    display: flex;
+    align-items: center;
+    padding: 12px 24px;
+    gap: 12px;
+    border-bottom: 1px solid var(--border);
+    background: var(--white);
+    -webkit-app-region: drag;
+    min-height: 56px;
+  }
+
+  .top-bar-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  .top-bar-stats {
+    font-size: 12px;
+    color: var(--muted);
+    margin-left: 12px;
+  }
+
+  .top-bar-spacer { flex: 1; }
+
+  .search-input {
+    padding: 7px 14px;
+    border: 1px solid var(--outline);
+    border-radius: 8px;
+    font-size: 13px;
+    width: 280px;
+    background: var(--surface-low);
+    -webkit-app-region: no-drag;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  .search-input:focus { border-color: var(--primary); }
+
+  .btn {
+    padding: 7px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid var(--outline);
+    background: var(--white);
+    color: var(--on-surface);
+    -webkit-app-region: no-drag;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+
+  .btn:hover { background: var(--surface-low); }
+  .btn-primary { background: var(--primary); color: white; border-color: var(--primary); }
+  .btn-primary:hover { background: var(--primary-light); }
+  .btn-accent { background: var(--accent); color: white; border-color: var(--accent); }
+  .btn-accent:hover { background: var(--accent-light); }
+  .btn-sm { padding: 4px 10px; font-size: 11px; }
+
+  /* ── CONTENT ── */
+  .content-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+  }
+
+  /* ── EPISODE LIST VIEW ── */
+  .episode-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+    gap: 16px;
+  }
+
+  .episode-card {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .episode-card:hover { border-color: var(--primary-light); box-shadow: 0 2px 8px rgba(82,45,128,0.08); }
+  .load-more { text-align: center; padding: 16px; color: var(--primary); cursor: pointer; font-size: 13px; font-weight: 600; grid-column: 1 / -1; }
+  .load-more:hover { text-decoration: underline; }
+
+  .episode-card .air-date {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+  }
+
+  .episode-card .ep-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 4px;
+    line-height: 1.3;
+  }
+
+  .episode-card .ep-show {
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+
+  .episode-card .ep-summary {
+    font-size: 12px;
+    color: var(--on-surface-variant);
+    line-height: 1.5;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .episode-card .ep-meta {
+    display: flex;
+    gap: 12px;
+    margin-top: 10px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .badge-new { background: #e8f5e9; color: #2e7d32; }
+  .badge-downloaded { background: #e3f2fd; color: #1565c0; }
+  .badge-transcribed { background: #f3e5f5; color: #7b1fa2; }
+
+  /* ── EPISODE DETAIL VIEW (Otter-style) ── */
+  .detail-view {
+    display: none;
+    flex-direction: column;
+    height: 100%;
+  }
+
+  .detail-view.active {
+    display: flex;
+  }
+
+  .detail-header {
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+    background: var(--white);
+  }
+
+  .detail-back {
+    font-size: 12px;
+    color: var(--primary);
+    cursor: pointer;
+    margin-bottom: 8px;
+    display: inline-block;
+  }
+
+  .detail-back:hover { text-decoration: underline; }
+
+  .detail-title-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+
+  .detail-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 1.3;
+  }
+
+  .detail-air-date {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--accent);
+    white-space: nowrap;
+    margin-left: 20px;
+  }
+
+  .detail-show-meta {
+    font-size: 13px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+
+  /* ── AUDIO PLAYER ── */
+  .audio-player-bar {
+    padding: 12px 24px;
+    background: #1a1c28;
+    color: white;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .audio-player-bar button {
+    background: none;
+    border: none;
+    color: white;
+    cursor: pointer;
+    font-size: 18px;
+    padding: 4px 8px;
+    border-radius: 4px;
+  }
+
+  .audio-player-bar button:hover { background: rgba(255,255,255,0.1); }
+
+  .audio-progress-container {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .audio-progress-bar {
+    flex: 1;
+    height: 6px;
+    background: rgba(255,255,255,0.2);
+    border-radius: 3px;
+    cursor: pointer;
+    position: relative;
+  }
+
+  .audio-progress-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 3px;
+    width: 0%;
+    transition: width 0.1s linear;
+  }
+
+  .audio-progress-bar .clip-marker {
+    position: absolute;
+    top: -3px;
+    width: 4px;
+    height: 12px;
+    border-radius: 2px;
+    background: var(--primary-light);
+    opacity: 0.7;
+  }
+
+  .audio-progress-bar .moment-marker {
+    position: absolute;
+    top: -4px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 1px solid white;
+  }
+
+  .audio-time {
+    font-size: 12px;
+    font-family: monospace;
+    color: rgba(255,255,255,0.7);
+    min-width: 50px;
+    text-align: center;
+  }
+
+  .speed-btn {
+    font-size: 11px !important;
+    padding: 2px 8px !important;
+    border: 1px solid rgba(255,255,255,0.3) !important;
+    border-radius: 4px !important;
+    min-width: 36px;
+    text-align: center;
+  }
+
+  .player-export-btns {
+    display: flex;
+    gap: 6px;
+    margin-left: 8px;
+  }
+
+  .player-export-btns .btn { font-size: 11px; padding: 4px 10px; }
+
+  /* ── TRANSCRIPT SEARCH ── */
+  .transcript-search-bar {
+    padding: 10px 24px;
+    background: var(--surface-low);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .transcript-search-bar input {
+    flex: 1;
+    padding: 6px 12px;
+    border: 1px solid var(--outline);
+    border-radius: 6px;
+    font-size: 13px;
+    background: var(--white);
+    outline: none;
+  }
+
+  .transcript-search-bar input:focus { border-color: var(--primary); }
+
+  .transcript-search-bar .match-info {
+    font-size: 12px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  .transcript-search-bar button {
+    padding: 4px 8px;
+    background: none;
+    border: 1px solid var(--outline);
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+  }
+
+  /* ── AI SUMMARY ── */
+  .ai-summary-section {
+    padding: 16px 24px;
+    background: linear-gradient(135deg, rgba(82,45,128,0.04), rgba(246,103,51,0.04));
+    border-bottom: 1px solid var(--border);
+  }
+
+  .ai-summary-title {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--primary);
+    margin-bottom: 6px;
+  }
+
+  .ai-summary-text {
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--on-surface);
+  }
+
+  .key-moments-list {
+    margin-top: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .key-moment-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    background: var(--key-moment);
+    border-radius: 12px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+
+  .key-moment-chip:hover { background: rgba(246,103,51,0.25); }
+
+  .key-moment-chip .km-time {
+    font-weight: 600;
+    color: var(--accent);
+  }
+
+  /* ── TRANSCRIPT ── */
+  .transcript-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 24px;
+  }
+
+  .transcript-segment {
+    display: flex;
+    padding: 6px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.1s;
+    margin-bottom: 2px;
+  }
+
+  .transcript-segment:hover { background: rgba(82,45,128,0.04); }
+  .transcript-segment.playing { background: var(--playing-segment); }
+  .transcript-segment.search-match .seg-text { background: var(--search-match); border-radius: 2px; }
+  .transcript-segment.clip-highlight { background: var(--clip-highlight); }
+  .transcript-segment.key-moment-highlight { border-left: 3px solid var(--accent); }
+  .transcript-segment.selected { background: rgba(246,103,51,0.18); }
+  .transcript-segment .seg-text { user-select: none; }
+  .transcript-segment ::selection { background: transparent; }
+
+  .seg-time {
+    font-size: 11px;
+    font-family: monospace;
+    color: var(--muted);
+    min-width: 60px;
+    padding-top: 2px;
+    user-select: none;
+  }
+
+  .seg-text {
+    font-size: 14px;
+    line-height: 1.6;
+    flex: 1;
+  }
+
+  /* ── HIGHLIGHT-TO-CLIP TOOLBAR ── */
+  .clip-toolbar {
+    display: none;
+    position: fixed;
+    background: var(--white);
+    border: 1px solid var(--outline);
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    padding: 8px;
+    gap: 6px;
+    z-index: 100;
+  }
+
+  .clip-toolbar.visible { display: flex; }
+
+  /* ── BOTTOM TABS ── */
+  .detail-bottom-tabs {
+    display: flex;
+    gap: 0;
+    border-top: 1px solid var(--border);
+    background: var(--white);
+  }
+
+  .detail-bottom-tab {
+    padding: 10px 20px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    color: var(--muted);
+    transition: all 0.15s;
+  }
+
+  .detail-bottom-tab:hover { color: var(--on-surface); }
+  .detail-bottom-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+  /* ── DATE RANGE BAR ── */
+  .date-range-bar {
+    padding: 8px 24px;
+    background: var(--surface-low);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    -webkit-app-region: no-drag;
+  }
+
+  .date-range-label {
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .date-range-bar input[type="date"] {
+    padding: 5px 10px;
+    border: 1px solid var(--outline);
+    border-radius: 6px;
+    font-size: 12px;
+    background: var(--white);
+  }
+
+  /* ── SOUNDBITE SEARCH RESULTS ── */
+  .soundbite-card {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 18px;
+    cursor: pointer;
+    transition: all 0.15s;
+    margin-bottom: 10px;
+  }
+
+  .soundbite-card:hover { border-color: var(--primary-light); box-shadow: 0 2px 8px rgba(82,45,128,0.08); }
+
+  .soundbite-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .soundbite-meta .sb-show { font-weight: 600; color: var(--on-surface-variant); }
+  .soundbite-meta .sb-date { color: var(--accent); font-weight: 600; }
+  .soundbite-meta .sb-time { font-family: monospace; }
+
+  .soundbite-quote {
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--on-surface);
+  }
+
+  .soundbite-quote mark {
+    background: var(--search-match);
+    border-radius: 2px;
+    padding: 0 2px;
+  }
+
+  .soundbite-episode {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 6px;
+  }
+
+  .search-results-header {
+    grid-column: 1 / -1;
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* ── EMPTY STATE ── */
+  .empty-state {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--muted);
+  }
+
+  .empty-state h3 { font-size: 18px; margin-bottom: 8px; color: var(--on-surface); }
+  .empty-state p { font-size: 13px; margin-bottom: 16px; }
+
+  /* ── COLLECTIONS ── */
+  .collection-add-btn {
+    display: inline-block;
+    font-size: 10px;
+    padding: 2px 6px;
+    background: var(--primary);
+    color: white;
+    border-radius: 4px;
+    cursor: pointer;
+    border: none;
+    margin-left: 4px;
+  }
+
+  .collection-add-btn:hover { background: var(--primary-light); }
+
+  .collection-picker {
+    position: fixed;
+    background: var(--white);
+    border: 1px solid var(--outline);
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    padding: 8px;
+    z-index: 200;
+    min-width: 200px;
+  }
+
+  .collection-picker-item {
+    padding: 6px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    border-radius: 4px;
+  }
+
+  .collection-picker-item:hover { background: var(--surface-low); }
+
+  .collection-picker-new {
+    display: flex;
+    gap: 4px;
+    padding: 6px 4px 2px;
+    border-top: 1px solid var(--border);
+    margin-top: 4px;
+  }
+
+  .collection-picker-new input {
+    flex: 1;
+    padding: 4px 8px;
+    border: 1px solid var(--outline);
+    border-radius: 4px;
+    font-size: 11px;
+  }
+
+  .soundbite-card .sb-actions {
+    display: flex;
+    gap: 4px;
+    margin-top: 6px;
+  }
+
+  /* ── TRANSCRIPT PARAGRAPHS ── */
+  .transcript-segment .seg-text {
+    font-size: 15px;
+    line-height: 1.7;
+  }
+
+  .transcript-break {
+    height: 16px;
+    border-bottom: 1px solid var(--border);
+    margin: 8px 60px 8px 68px;
+    opacity: 0.4;
+  }
+
+  /* ── PREVIEW PLAYER ── */
+  .preview-btn {
+    background: none;
+    border: 1px solid var(--outline);
+    border-radius: 50%;
+    width: 28px;
+    height: 28px;
+    cursor: pointer;
+    font-size: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.15s;
+  }
+
+  .preview-btn:hover { background: var(--primary); color: white; border-color: var(--primary); }
+  .preview-btn.playing { background: var(--accent); color: white; border-color: var(--accent); }
+
+  /* ── STATUS ── */
+  .status-bar {
+    padding: 6px 16px;
+    font-size: 11px;
+    color: var(--muted);
+    border-top: 1px solid var(--border);
+    background: var(--surface-low);
+    display: flex;
+    justify-content: space-between;
+  }
+  .toast-container { position: fixed; top: 64px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+  .toast { pointer-events: auto; padding: 12px 18px; border-radius: 10px; font-size: 13px; font-weight: 500; max-width: 380px; box-shadow: 0 4px 16px rgba(0,0,0,0.15); animation: toastIn 0.25s ease-out; }
+  .toast.error { background: #C62828; color: white; }
+  .toast.success { background: #2E7D32; color: white; }
+  .toast.info { background: var(--primary); color: white; }
+  .toast.fadeout { opacity: 0; transition: opacity 0.3s ease-out; }
+  @keyframes toastIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<div class="sidebar">
+  <div class="sidebar-header">
+    <h1>RadioVault</h1>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-section-title">Navigate</div>
+    <div class="sidebar-item active" data-view="episodes" onclick="navigate('episodes')">
+      <span>All Episodes</span>
+      <span class="count" id="nav-episode-count">0</span>
+    </div>
+    <div class="sidebar-item" data-view="recent" onclick="navigate('recent')">
+      <span>Recent</span>
+    </div>
+  </div>
+
+  <div class="sidebar-section" id="years-section">
+    <div class="sidebar-section-title">Years</div>
+  </div>
+
+  <div class="sidebar-section" id="shows-section">
+    <div class="sidebar-section-title">Shows</div>
+  </div>
+
+  <div class="sidebar-section" id="collections-section">
+    <div class="sidebar-section-title">Collections</div>
+  </div>
+
+  <div class="sidebar-section" id="topics-section">
+    <div class="sidebar-section-title">Topics</div>
+  </div>
+
+  <div class="sidebar-footer">
+    <a onclick="window.location='settings.html'">Settings</a>
+  </div>
+</div>
+
+<!-- MAIN AREA -->
+<div class="main-area">
+
+  <!-- TOP BAR -->
+  <div class="top-bar" id="top-bar">
+    <span class="top-bar-title" id="view-title">All Episodes</span>
+    <span class="top-bar-stats" id="top-stats"></span>
+    <div class="top-bar-spacer"></div>
+    <input type="text" class="search-input" id="global-search" placeholder="Search... comma=OR, (word word)=AND" oninput="onGlobalSearch(this.value)">
+    <button class="btn" id="btn-refresh" onclick="refreshFeeds()">Refresh Feeds</button>
+    <button class="btn" id="btn-scrape" onclick="scrapeArchive()">Scrape Archive</button>
+    <button class="btn btn-primary" id="btn-download-all" onclick="batchDownloadCurrentView()">Download All</button>
+    <button class="btn" id="btn-add-local" onclick="addLocalFile()">Add File</button>
+  </div>
+
+  <!-- DATE RANGE FILTER (visible when searching) -->
+  <div class="date-range-bar" id="date-range-bar" style="display:none;">
+    <span class="date-range-label">Date range:</span>
+    <input type="date" id="search-date-from" onchange="onGlobalSearch(document.getElementById('global-search').value)">
+    <span class="date-range-label">to</span>
+    <input type="date" id="search-date-to" onchange="onGlobalSearch(document.getElementById('global-search').value)">
+    <button class="btn btn-sm" onclick="clearDateRange()">Clear dates</button>
+  </div>
+
+  <!-- EPISODE LIST -->
+  <div class="content-area" id="episode-list-view">
+    <div class="episode-grid" id="episode-grid"></div>
+  </div>
+
+  <!-- EPISODE DETAIL (Otter-style) -->
+  <div class="detail-view" id="detail-view">
+    <div class="detail-header">
+      <span class="detail-back" onclick="closeDetail()">&larr; Back to episodes</span>
+      <div class="detail-title-row">
+        <div>
+          <div class="detail-title" id="detail-title"></div>
+          <div class="detail-show-meta" id="detail-meta"></div>
+        </div>
+        <div class="detail-air-date" id="detail-air-date"></div>
+      </div>
+    </div>
+
+    <!-- Audio player -->
+    <div class="audio-player-bar">
+      <button id="btn-play" onclick="togglePlay()">&#9654;</button>
+      <button onclick="seekRelative(-15)">-15s</button>
+      <button onclick="seekRelative(15)">+15s</button>
+      <div class="audio-progress-container">
+        <span class="audio-time" id="time-current">0:00</span>
+        <div class="audio-progress-bar" id="progress-bar" onclick="seekToPosition(event)">
+          <div class="audio-progress-fill" id="progress-fill"></div>
+        </div>
+        <span class="audio-time" id="time-total">0:00</span>
+      </div>
+      <button class="speed-btn" id="speed-btn" onclick="cycleSpeed()">1x</button>
+      <div class="player-export-btns">
+        <button class="btn btn-sm btn-accent" onclick="exportCurrentClip()">Export Clip</button>
+      </div>
+    </div>
+
+    <!-- Transcript search -->
+    <div class="transcript-search-bar">
+      <input type="text" id="transcript-search" placeholder="Search in this transcript..." oninput="onTranscriptSearch(this.value)">
+      <span class="match-info" id="match-info"></span>
+      <button onclick="prevMatch()">&larr;</button>
+      <button onclick="nextMatch()">&rarr;</button>
+    </div>
+
+    <!-- AI Summary -->
+    <div class="ai-summary-section" id="ai-summary-section" style="display:none;">
+      <div class="ai-summary-title">AI Summary</div>
+      <div class="ai-summary-text" id="ai-summary-text"></div>
+      <div class="key-moments-list" id="key-moments-list"></div>
+    </div>
+
+    <!-- Transcript -->
+    <div class="transcript-container" id="transcript-container"></div>
+  </div>
+
+  <!-- Status bar -->
+  <div class="status-bar">
+    <span id="status-left"></span>
+    <span id="status-right"></span>
+  </div>
+</div>
+
+<!-- Clip toolbar (floating, hidden by default) -->
+<div class="clip-toolbar" id="clip-toolbar">
+  <button class="btn btn-sm btn-primary" onclick="createClipFromSelection()">Create Clip</button>
+  <button class="btn btn-sm btn-accent" onclick="exportFromSelection()">Export Audio</button>
+  <button class="btn btn-sm btn-primary" onclick="addSelectionToCollection(event)">+ Collection</button>
+  <button class="btn btn-sm" onclick="cancelSelection()">Cancel</button>
+</div>
+
+<!-- Toast notifications -->
+<div class="toast-container" id="toast-container"></div>
+
+<!-- Hidden audio element -->
+<audio id="audio-player" preload="auto"></audio>
+
+<script>
+// ── STATE ──────────────────────────────────────────────────────────────────
+var DB = { content_items: {}, clips: [], tags: {}, shows: {}, home_topics: [], last_updated: null };
+let currentView = 'episodes';
+let currentFilter = null;
+let currentItemId = null;
+let searchMatches = [];
+let searchMatchIndex = -1;
+let _searchResults = [];
+let _searchClauses = [];
+let _searchShown = 0;
+let _openEpisodeSeekToken = 0;
+const SEARCH_PAGE_SIZE = 100;
+let selectionStart = null;
+let selectionEnd = null;
+const playbackSpeeds = [0.5, 1, 1.25, 1.5, 2];
+let speedIndex = 1;
+
+const audio = document.getElementById('audio-player');
+
+function showToast(message, type = 'info', durationMs = 4000) {
+  const container = document.getElementById('toast-container');
+  const toast = document.createElement('div');
+  toast.className = 'toast ' + type;
+  toast.textContent = message;
+  container.appendChild(toast);
+  setTimeout(() => { toast.classList.add('fadeout'); setTimeout(() => toast.remove(), 300); }, durationMs);
+}
+
+// ── INIT ───────────────────────────────────────────────────────────────────
+if (window.DB) {
+  // DB is injected by main process via executeJavaScript
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  renderSidebar();
+  renderContent();
+  updateStats();
+});
+
+// ── NAVIGATION ─────────────────────────────────────────────────────────────
+function navigate(view, filter) {
+  currentView = view;
+  currentFilter = filter || null;
+  closeDetail();
+  document.querySelectorAll('.sidebar-item').forEach(el => el.classList.remove('active'));
+  const match = document.querySelector(`.sidebar-item[data-view="${view}_${filter}"]`)
+    || document.querySelector(`.sidebar-item[data-view="${view}"]`);
+  if (match) match.classList.add('active');
+
+  // Update title
+  const titleEl = document.getElementById('view-title');
+  if (view === 'year') titleEl.textContent = filter;
+  else if (view === 'show') titleEl.textContent = Object.values(DB.shows || {}).find(s => s.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') === filter)?.name || filter;
+  else if (view === 'topic') titleEl.textContent = 'Topic: ' + filter;
+  else if (view === 'recent') titleEl.textContent = 'Recent';
+  else titleEl.textContent = 'All Episodes';
+
+  renderContent();
+}
+
+function closeDetail() {
+  document.getElementById('detail-view').classList.remove('active');
+  document.getElementById('episode-list-view').style.display = '';
+  document.getElementById('top-bar').style.display = '';
+  audio.pause();
+  currentItemId = null;
+  clearTranscriptSearchState({ clearInput: true });
+}
+
+// ── RENDER SIDEBAR ─────────────────────────────────────────────────────────
+function renderSidebar() {
+  // Years
+  const items = Object.values(DB.content_items || {});
+  const yearCounts = {};
+  for (const item of items) {
+    const year = (item.date || '').slice(0, 4);
+    if (year && year.length === 4) {
+      yearCounts[year] = (yearCounts[year] || 0) + 1;
+    }
+  }
+  const yearsSection = document.getElementById('years-section');
+  let yearsHtml = '<div class="sidebar-section-title">Years</div>';
+  for (const year of Object.keys(yearCounts).sort().reverse()) {
+    yearsHtml += `<div class="sidebar-item" data-view="year_${year}" onclick="navigate('year','${year}')">
+      <span>${year}</span>
+      <span class="count">${yearCounts[year]}</span>
+    </div>`;
+  }
+  yearsSection.innerHTML = yearsHtml;
+
+  // Shows
+  const shows = DB.shows || {};
+  const showsSection = document.getElementById('shows-section');
+  let showsHtml = '<div class="sidebar-section-title">Shows</div>';
+  for (const [slug, show] of Object.entries(shows).sort((a, b) => b[1].item_count - a[1].item_count)) {
+    showsHtml += `<div class="sidebar-item" data-view="show_${slug}" onclick="navigate('show','${slug}')">
+      <span>${show.name}</span>
+      <span class="count">${show.item_count}</span>
+    </div>`;
+  }
+  showsSection.innerHTML = showsHtml;
+
+  // Collections
+  const collections = DB.collections || {};
+  const collectionsSection = document.getElementById('collections-section');
+  let colHtml = '<div class="sidebar-section-title">Collections</div>';
+  for (const [id, col] of Object.entries(collections)) {
+    colHtml += `<div class="sidebar-item" data-view="collection_${id}" onclick="navigate('collection','${id}')">
+      <span>${escHtml(col.name)}</span>
+      <span class="count">${col.items.length}</span>
+    </div>`;
+  }
+  colHtml += `<div class="sidebar-item" onclick="createNewCollection()" style="color:var(--accent);font-size:12px;">+ New Collection</div>`;
+  collectionsSection.innerHTML = colHtml;
+
+  // Topics
+  const tags = DB.tags || {};
+  const topicsSection = document.getElementById('topics-section');
+  let topicsHtml = '<div class="sidebar-section-title">Topics</div>';
+  const sortedTags = Object.values(tags).sort((a, b) => b.clip_count - a.clip_count).slice(0, 15);
+  for (const tag of sortedTags) {
+    topicsHtml += `<div class="sidebar-item" data-view="topic_${tag.term}" onclick="navigate('topic','${tag.term}')">
+      <span>${tag.term}</span>
+      <span class="count">${tag.clip_count}</span>
+    </div>`;
+  }
+  topicsSection.innerHTML = topicsHtml;
+
+  document.getElementById('nav-episode-count').textContent = items.length;
+}
+
+// ── RENDER EPISODE LIST ────────────────────────────────────────────────────
+const EPISODE_PAGE_SIZE = 100;
+var _allFilteredItems = [];
+var _renderedCount = 0;
+
+function renderContent() {
+  const grid = document.getElementById('episode-grid');
+  const searchVal = document.getElementById('global-search').value.toLowerCase().trim();
+
+  if (currentView === 'collection' && currentFilter) {
+    renderCollectionView(currentFilter);
+    return;
+  }
+
+  let items = getFilteredItems();
+
+  // Global search -- search ALL transcribed episodes, not just current filter
+  if (searchVal) {
+    renderSoundbiteSearch(searchVal, null);
+    return;
+  }
+
+  // Sort by date descending
+  items.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+
+  if (items.length === 0) {
+    grid.innerHTML = `<div class="empty-state">
+      <h3>No episodes found</h3>
+      <p>${Object.keys(DB.content_items || {}).length === 0 ? 'Add an RSS feed in Settings and click Refresh Feeds to get started.' : 'Try a different search or filter.'}</p>
+    </div>`;
+    return;
+  }
+
+  _allFilteredItems = items;
+  _renderedCount = 0;
+  grid.innerHTML = '';
+  renderNextPage();
+}
+
+function renderEpisodeCard(item) {
+  const airDate = item.date ? formatAirDate(item.date) : 'No date';
+  const duration = item.duration ? formatDuration(item.duration) : '';
+  const status = item.processed_at ? 'transcribed' : (item.file_path ? 'downloaded' : 'new');
+  const statusLabel = { new: 'New', downloaded: 'Downloaded', transcribed: 'Transcribed' }[status];
+  const badgeClass = { new: 'badge-new', downloaded: 'badge-downloaded', transcribed: 'badge-transcribed' }[status];
+  const summary = item.summary || (item.description || '').slice(0, 200);
+  const clipCount = item.clip_count || 0;
+
+  return `<div class="episode-card" onclick="openEpisode('${item.id}')">
+    <div class="air-date">${airDate}</div>
+    <div class="ep-title">${escHtml(item.title || 'Untitled')}</div>
+    <div class="ep-show">${escHtml(item.show_name || '')}</div>
+    ${summary ? `<div class="ep-summary">${escHtml(summary)}</div>` : ''}
+    <div class="ep-meta">
+      <span class="badge ${badgeClass}">${statusLabel}</span>
+      ${duration ? `<span>${duration}</span>` : ''}
+      ${clipCount > 0 ? `<span>${clipCount} clips</span>` : ''}
+    </div>
+  </div>`;
+}
+
+function renderNextPage() {
+  const grid = document.getElementById('episode-grid');
+  const end = Math.min(_renderedCount + EPISODE_PAGE_SIZE, _allFilteredItems.length);
+  const batch = _allFilteredItems.slice(_renderedCount, end);
+
+  // Remove existing load-more button
+  const existing = document.getElementById('load-more-btn');
+  if (existing) existing.remove();
+
+  const fragment = document.createDocumentFragment();
+  const temp = document.createElement('div');
+  temp.innerHTML = batch.map(renderEpisodeCard).join('');
+  while (temp.firstChild) fragment.appendChild(temp.firstChild);
+  grid.appendChild(fragment);
+
+  _renderedCount = end;
+
+  if (_renderedCount < _allFilteredItems.length) {
+    const remaining = _allFilteredItems.length - _renderedCount;
+    const btn = document.createElement('div');
+    btn.id = 'load-more-btn';
+    btn.className = 'load-more';
+    btn.textContent = `Load more (${remaining} remaining)`;
+    btn.onclick = renderNextPage;
+    grid.appendChild(btn);
+  }
+}
+
+function renderSoundbiteSearch(query) {
+  const grid = document.getElementById('episode-grid');
+
+  // Parse search query:
+  //   comma = OR (separate searches)
+  //   (word1 word2) = AND (all words must appear in same window)
+  //   plain text = exact phrase match
+  const clauses = parseSearchQuery(query);
+  if (clauses.length === 0) return;
+
+  const dateFrom = document.getElementById('search-date-from').value || null;
+  const dateTo = document.getElementById('search-date-to').value || null;
+
+  const results = [];
+  const seenWindows = new Set();
+  const acceptedWindowsByItem = new Map();
+
+  for (const item of Object.values(DB.content_items || {})) {
+    if (dateFrom && (!item.date || item.date < dateFrom)) continue;
+    if (dateTo && (!item.date || item.date > dateTo)) continue;
+
+    const segs = item.transcript?.segments;
+    if (!segs) continue;
+
+    for (let i = 0; i < segs.length; i++) {
+      const si = Math.max(0, i - 2);
+      const ei = Math.min(segs.length - 1, i + 3);
+      const windowText = segs.slice(si, ei + 1).map(s => s.text).join(' ').toLowerCase();
+
+      // Check if ANY clause matches (OR across clauses)
+      const matched = clauses.some(clause => {
+        if (clause.type === 'and') {
+          return clause.words.every(w => matchWholeWord(windowText, w));
+        } else {
+          return matchWholeWord(windowText, clause.phrase);
+        }
+      });
+      if (!matched) continue;
+
+      const candidateWindow = {
+        si,
+        ei,
+        start: segs[si].start,
+        end: segs[ei].end,
+      };
+      const timeKey = `${item.id}|${Math.floor(segs[i].start / 30)}`;
+      if (seenWindows.has(timeKey)) continue;
+
+      const recentWindows = acceptedWindowsByItem.get(item.id) || [];
+      const activeWindows = recentWindows.filter(w => w.end >= candidateWindow.start);
+      if (activeWindows.some(w => isDuplicateSearchWindow(w, candidateWindow))) {
+        acceptedWindowsByItem.set(item.id, activeWindows);
+        continue;
+      }
+      activeWindows.push(candidateWindow);
+      acceptedWindowsByItem.set(item.id, activeWindows);
+      seenWindows.add(timeKey);
+
+      const quote = segs.slice(si, ei + 1).map(s => s.text).join(' ');
+
+      results.push({
+        quote,
+        timestamp: segs[i].start,
+        itemId: item.id,
+        title: item.title,
+        show: item.show_name,
+        date: item.date,
+      });
+    }
+  }
+
+  results.sort((a, b) => (b.date || '').localeCompare(a.date || '') || a.timestamp - b.timestamp);
+
+  const termDisplay = clauses.map(formatSearchClause).join(' or ');
+  const dateDisplay = (dateFrom || dateTo) ? ` (${dateFrom || '...'} to ${dateTo || '...'})` : '';
+
+  if (results.length === 0) {
+    grid.innerHTML = `<div class="empty-state">
+      <h3>No matches for ${termDisplay}${dateDisplay}</h3>
+      <p>Try a different phrase. Only transcribed episodes are searchable.</p>
+    </div>`;
+    return;
+  }
+
+  _searchResults = results;
+  _searchClauses = clauses;
+  _searchShown = 0;
+
+  grid.innerHTML = `<div class="search-results-header">${results.length} soundbite${results.length === 1 ? '' : 's'} matching ${termDisplay}${dateDisplay}</div>`;
+  loadMoreSearchResults();
+}
+
+function isDuplicateSearchWindow(existing, candidate) {
+  const overlapStartIndex = Math.max(existing.si, candidate.si);
+  const overlapEndIndex = Math.min(existing.ei, candidate.ei);
+  const overlappingSegments = Math.max(0, overlapEndIndex - overlapStartIndex + 1);
+  const existingSegments = existing.ei - existing.si + 1;
+  const candidateSegments = candidate.ei - candidate.si + 1;
+  const minSegments = Math.min(existingSegments, candidateSegments);
+
+  if (overlappingSegments >= Math.max(2, Math.ceil(minSegments * 0.6))) {
+    return true;
+  }
+
+  const overlapSeconds = Math.min(existing.end, candidate.end) - Math.max(existing.start, candidate.start);
+  if (overlapSeconds <= 0) return false;
+
+  const shortestWindowSeconds = Math.max(
+    0.001,
+    Math.min(existing.end - existing.start, candidate.end - candidate.start)
+  );
+  return (overlapSeconds / shortestWindowSeconds) >= 0.65;
+}
+
+function renderSoundbiteCard(r, clauses) {
+  let highlighted = escHtml(r.quote);
+  for (const clause of clauses) {
+    if (clause.type === 'and') {
+      for (const w of clause.words) highlighted = highlightPhrase(highlighted, w);
+    } else {
+      highlighted = highlightPhrase(highlighted, clause.phrase);
+    }
+  }
+  const sbData = encodeURIComponent(JSON.stringify({ content_item_id: r.itemId, title: r.title, show_name: r.show, date: r.date, timestamp_start: r.timestamp, timestamp_end: r.timestamp + 30, quote: r.quote }));
+  return `<div class="soundbite-card">
+    <div class="soundbite-meta">
+      <button class="preview-btn" onclick="event.stopPropagation(); previewSoundbite('${r.itemId}', ${r.timestamp}, event)" title="Preview">&#9654;</button>
+      <span class="sb-show">${escHtml(r.show || '')}</span>
+      <span class="sb-date">${r.date ? formatAirDate(r.date) : ''}</span>
+      <span class="sb-time">${formatTime(r.timestamp)}</span>
+    </div>
+    <div class="soundbite-quote" onclick="openEpisodeAtTime('${r.itemId}', ${r.timestamp})">${highlighted}</div>
+    <div class="soundbite-episode">${escHtml(r.title || '')}</div>
+    <div class="sb-actions">
+      <button class="btn btn-sm" onclick="event.stopPropagation(); openEpisodeAtTime('${r.itemId}', ${r.timestamp})">Open</button>
+      <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); showCollectionPicker(event, '${sbData}')">+ Collection</button>
+    </div>
+  </div>`;
+}
+
+function loadMoreSearchResults() {
+  const grid = document.getElementById('episode-grid');
+  const batch = _searchResults.slice(_searchShown, _searchShown + SEARCH_PAGE_SIZE);
+  const html = batch.map(r => renderSoundbiteCard(r, _searchClauses)).join('');
+  _searchShown += batch.length;
+
+  // Remove existing load-more button if present
+  const existing = document.getElementById('load-more-btn');
+  if (existing) existing.remove();
+
+  grid.insertAdjacentHTML('beforeend', html);
+
+  if (_searchShown < _searchResults.length) {
+    const remaining = _searchResults.length - _searchShown;
+    grid.insertAdjacentHTML('beforeend',
+      `<div id="load-more-btn" style="text-align:center; padding:16px;">
+        <button class="btn btn-primary" onclick="loadMoreSearchResults()">Load More (${remaining} remaining)</button>
+      </div>`);
+  }
+}
+
+/**
+ * Parse search query into clauses.
+ * Comma separates OR clauses.
+ * Parentheses mean AND (all words must appear).
+ * Plain text is an exact phrase.
+ *
+ * Examples:
+ *   "tate reynolds"         -> [{ type: 'phrase', phrase: 'tate reynolds' }]
+ *   "tate, good"            -> [{ type: 'phrase', phrase: 'tate' }, { type: 'phrase', phrase: 'good' }]
+ *   "(tate good)"           -> [{ type: 'and', words: ['tate', 'good'] }]
+ *   "(tate good), defense"  -> [{ type: 'and', words: ['tate', 'good'] }, { type: 'phrase', phrase: 'defense' }]
+ */
+function parseSearchQuery(query) {
+  const clauses = [];
+  const parts = query.split(',');
+
+  for (const part of parts) {
+    const trimmed = part.trim();
+    if (!trimmed) continue;
+
+    const andMatch = trimmed.match(/^\(([^)]+)\)$/);
+    if (andMatch) {
+      const words = andMatch[1].trim().toLowerCase().split(/\s+/).filter(w => w.length > 0);
+      if (words.length > 0) {
+        clauses.push({ type: 'and', words });
+      }
+    } else {
+      clauses.push({ type: 'phrase', phrase: trimmed.toLowerCase() });
+    }
+  }
+
+  return clauses;
+}
+
+function matchWholeWord(text, term) {
+  if (!term) return false;
+  return buildWholeTermRegex(term, 'i').test(text);
+}
+
+function highlightPhrase(htmlText, query) {
+  if (!query) return htmlText;
+  return htmlText.replace(buildWholeTermRegex(query, 'gi', true), '$1<mark>$2</mark>');
+}
+
+async function openEpisodeAtTime(itemId, timestamp) {
+  const seekToken = ++_openEpisodeSeekToken;
+  const opened = await openEpisode(itemId);
+  if (!opened || seekToken !== _openEpisodeSeekToken) return;
+
+  const cleanup = () => {
+    audio.removeEventListener('loadedmetadata', handleReady);
+    audio.removeEventListener('error', cleanup);
+    audio.removeEventListener('emptied', cleanup);
+  };
+
+  const handleReady = () => {
+    cleanup();
+    if (seekToken !== _openEpisodeSeekToken || currentItemId !== itemId) return;
+    seekTo(timestamp);
+  };
+
+  if (audio.readyState >= 1) {
+    handleReady();
+    return;
+  }
+
+  audio.addEventListener('loadedmetadata', handleReady);
+  audio.addEventListener('error', cleanup);
+  audio.addEventListener('emptied', cleanup);
+}
+
+function updateStats() {
+  const itemCount = Object.keys(DB.content_items || {}).length;
+  const clipCount = (DB.clips || []).length;
+  const showCount = Object.keys(DB.shows || {}).length;
+  document.getElementById('top-stats').textContent = `${itemCount} episodes / ${clipCount} clips / ${showCount} shows`;
+}
+
+// ── OPEN EPISODE DETAIL ────────────────────────────────────────────────────
+async function openEpisode(itemId) {
+  const item = DB.content_items[itemId];
+  if (!item) return false;
+
+  // Ensure audio is available (downloads if needed)
+  if (!(await ensureAudioAvailable(itemId))) return false;
+  currentItemId = itemId;
+
+  const freshItem = DB.content_items[itemId];
+
+  // Hide list, show detail
+  document.getElementById('episode-list-view').style.display = 'none';
+  document.getElementById('top-bar').style.display = 'none';
+  document.getElementById('detail-view').classList.add('active');
+
+  // Fill header
+  document.getElementById('detail-title').textContent = freshItem.title || 'Untitled';
+  document.getElementById('detail-meta').textContent = `${freshItem.show_name || ''} ${freshItem.duration ? '/ ' + formatDuration(freshItem.duration) : ''}`;
+  document.getElementById('detail-air-date').textContent = freshItem.date ? 'Air Date: ' + formatAirDate(freshItem.date) : '';
+
+  // Load audio
+  if (freshItem.file_path) {
+    audio.src = 'file://' + freshItem.file_path;
+    audio.load();
+  }
+
+  // AI Summary
+  const summarySection = document.getElementById('ai-summary-section');
+  if (freshItem.summary) {
+    summarySection.style.display = '';
+    document.getElementById('ai-summary-text').textContent = freshItem.summary;
+    const momentsList = document.getElementById('key-moments-list');
+    momentsList.innerHTML = (freshItem.key_moments || []).map(m =>
+      `<span class="key-moment-chip" onclick="seekTo(${m.timestamp})">
+        <span class="km-time">${formatTime(m.timestamp)}</span>
+        ${escHtml(m.description)}
+      </span>`
+    ).join('');
+  } else {
+    summarySection.style.display = 'none';
+  }
+
+  // Fetch transcript from Supabase if not available locally
+  if (!freshItem.transcript || !freshItem.transcript.segments) {
+    const result = await electronAPI.readTranscript(itemId);
+    if (result && typeof result === 'object') {
+      if (result.transcript) {
+        freshItem.transcript = result.transcript;
+        if (result.key_moments) freshItem.key_moments = result.key_moments;
+        if (result.summary) freshItem.summary = result.summary;
+      } else if (result.segments) {
+        freshItem.transcript = result;
+      }
+    } else if (result && typeof result === 'string') {
+      freshItem.transcript = { full_text: result, segments: [] };
+    }
+    // Re-render summary/moments if fetched from Supabase
+    if (freshItem.summary) {
+      summarySection.style.display = '';
+      document.getElementById('ai-summary-text').textContent = freshItem.summary;
+      const momentsList = document.getElementById('key-moments-list');
+      momentsList.innerHTML = (freshItem.key_moments || []).map(m =>
+        `<span class="key-moment-chip" onclick="seekTo(${m.timestamp})">
+          <span class="km-time">${formatTime(m.timestamp)}</span>
+          ${escHtml(m.description)}
+        </span>`
+      ).join('');
+    }
+  }
+
+  // Render transcript
+  renderTranscript(freshItem);
+
+  // Render clip markers on progress bar
+  renderClipMarkers(freshItem);
+
+  // Auto-transcribe if not yet processed
+  if (!freshItem.processed_at && freshItem.file_path) {
+    maybeAutoTranscribe(itemId);
+  }
+
+  return true;
+}
+
+// ── TRANSCRIPT RENDERING ───────────────────────────────────────────────────
+function renderTranscript(item) {
+  const container = document.getElementById('transcript-container');
+  const transcript = item.transcript;
+
+  if (!transcript || !transcript.segments || !transcript.segments.length) {
+    if (!item.processed_at) {
+      container.innerHTML = `<div class="empty-state">
+        <h3>Not yet transcribed</h3>
+        <p>Go to Settings and run the ingestion pipeline to transcribe this episode.</p>
+      </div>`;
+    } else {
+      container.innerHTML = `<div class="empty-state"><h3>No transcript available</h3></div>`;
+    }
+    syncTranscriptSearchState();
+    return;
+  }
+
+  const segments = transcript.segments;
+  const itemClips = (DB.clips || []).filter(c => c.content_item_id === item.id);
+  const keyMoments = item.key_moments || [];
+
+  let html = '';
+  for (let i = 0; i < segments.length; i++) {
+    const seg = segments[i];
+    const isClip = itemClips.some(c => seg.start >= c.timestamp_start && seg.start <= c.timestamp_end);
+    const isMoment = keyMoments.some(m => Math.abs(seg.start - m.timestamp) < 15);
+    let classes = 'transcript-segment';
+    if (isClip) classes += ' clip-highlight';
+    if (isMoment) classes += ' key-moment-highlight';
+
+    // Insert paragraph break if gap > 3 seconds between segments
+    if (i > 0 && (seg.start - segments[i - 1].end) > 3) {
+      html += '<div class="transcript-break"></div>';
+    }
+
+    html += `<div class="${classes}" data-index="${i}" data-start="${seg.start}" data-end="${seg.end}"
+                 onclick="onSegmentClick(event, ${i}, ${seg.start})">
+      <span class="seg-time">${formatTime(seg.start)}</span>
+      <span class="seg-text">${escHtml(seg.text)}</span>
+    </div>`;
+  }
+  container.innerHTML = html;
+  syncTranscriptSearchState();
+}
+
+// ── AUDIO PLAYER ───────────────────────────────────────────────────────────
+audio.addEventListener('timeupdate', () => {
+  const current = audio.currentTime;
+  const duration = audio.duration || 0;
+  document.getElementById('time-current').textContent = formatTime(current);
+  if (duration > 0) {
+    document.getElementById('progress-fill').style.width = (current / duration * 100) + '%';
+  }
+
+  // Highlight current segment
+  document.querySelectorAll('.transcript-segment.playing').forEach(el => el.classList.remove('playing'));
+  const segs = document.querySelectorAll('.transcript-segment');
+  for (const seg of segs) {
+    const start = parseFloat(seg.dataset.start);
+    const end = parseFloat(seg.dataset.end);
+    if (current >= start && current < end) {
+      seg.classList.add('playing');
+      // Auto-scroll
+      const container = document.getElementById('transcript-container');
+      const segTop = seg.offsetTop - container.offsetTop;
+      const scrollTop = container.scrollTop;
+      const containerHeight = container.clientHeight;
+      if (segTop < scrollTop || segTop > scrollTop + containerHeight - 60) {
+        container.scrollTo({ top: segTop - containerHeight / 3, behavior: 'smooth' });
+      }
+      break;
+    }
+  }
+});
+
+audio.addEventListener('loadedmetadata', () => {
+  document.getElementById('time-total').textContent = formatTime(audio.duration);
+});
+
+function togglePlay() {
+  if (audio.paused) {
+    audio.play();
+    document.getElementById('btn-play').innerHTML = '&#9646;&#9646;';
+  } else {
+    audio.pause();
+    document.getElementById('btn-play').innerHTML = '&#9654;';
+  }
+}
+
+function seekRelative(sec) {
+  audio.currentTime = Math.max(0, Math.min(audio.duration || 0, audio.currentTime + sec));
+}
+
+function seekTo(sec) {
+  audio.currentTime = sec;
+  if (audio.paused) audio.play();
+  document.getElementById('btn-play').innerHTML = '&#9646;&#9646;';
+}
+
+function seekToPosition(event) {
+  const bar = document.getElementById('progress-bar');
+  const rect = bar.getBoundingClientRect();
+  const pct = (event.clientX - rect.left) / rect.width;
+  audio.currentTime = pct * (audio.duration || 0);
+}
+
+function cycleSpeed() {
+  speedIndex = (speedIndex + 1) % playbackSpeeds.length;
+  audio.playbackRate = playbackSpeeds[speedIndex];
+  document.getElementById('speed-btn').textContent = playbackSpeeds[speedIndex] + 'x';
+}
+
+function onSegmentClick(event, index, startTime) {
+  if (event.shiftKey && selectionStart !== null) {
+    // Shift-click: set end point and show toolbar
+    selectionEnd = index;
+    clearSelection();
+    highlightSegments(Math.min(selectionStart, selectionEnd), Math.max(selectionStart, selectionEnd));
+    showClipToolbar();
+  } else {
+    // Normal click: set start point (or just play if no selection intent)
+    cancelSelection();
+    selectionStart = index;
+    selectionEnd = null;
+    // Highlight just this one segment to show it's the anchor
+    const segs = document.querySelectorAll('.transcript-segment');
+    if (segs[index]) segs[index].classList.add('selected');
+    seekTo(startTime);
+  }
+}
+
+// ── CLIP MARKERS ON PROGRESS BAR ──────────────────────────────────────────
+function renderClipMarkers(item) {
+  const bar = document.getElementById('progress-bar');
+  // Remove old markers
+  bar.querySelectorAll('.clip-marker, .moment-marker').forEach(el => el.remove());
+
+  const duration = item.duration || audio.duration || 1;
+  const clips = (DB.clips || []).filter(c => c.content_item_id === item.id);
+  for (const clip of clips) {
+    const marker = document.createElement('div');
+    marker.className = clip.source_reason === 'ai_detected' ? 'moment-marker' : 'clip-marker';
+    marker.style.left = (clip.timestamp_start / duration * 100) + '%';
+    marker.title = clip.quote?.slice(0, 80) || clip.keyword;
+    bar.appendChild(marker);
+  }
+}
+
+// ── TRANSCRIPT SEARCH ──────────────────────────────────────────────────────
+function clearTranscriptSearchState({ clearInput = false } = {}) {
+  searchMatches = [];
+  searchMatchIndex = -1;
+  document.querySelectorAll('.transcript-segment.search-match').forEach(el => el.classList.remove('search-match'));
+  document.querySelectorAll('.transcript-segment .seg-text').forEach(el => {
+    if (el.querySelector('mark')) el.textContent = el.textContent;
+  });
+  document.getElementById('match-info').textContent = '';
+  if (clearInput) document.getElementById('transcript-search').value = '';
+}
+
+function syncTranscriptSearchState() {
+  clearTranscriptSearchState();
+  const query = document.getElementById('transcript-search').value;
+  if (!query.trim()) return;
+  if (!document.querySelector('.transcript-segment')) return;
+  onTranscriptSearch(query);
+}
+
+function onTranscriptSearch(query) {
+  clearTranscriptSearchState();
+  if (!query.trim()) return;
+
+  // Same syntax as global search: comma = OR, (words) = AND, whole-word matching
+  const clauses = parseSearchQuery(query);
+  if (clauses.length === 0) return;
+
+  const allSegs = Array.from(document.querySelectorAll('.transcript-segment'));
+  if (!allSegs.length) return;
+
+  allSegs.forEach(el => {
+    const segText = el.querySelector('.seg-text');
+    const text = segText.textContent;
+
+    // Check within a wider window: this segment + neighbors
+    const idx = parseInt(el.dataset.index);
+    const si = Math.max(0, idx - 2);
+    const ei = Math.min(allSegs.length - 1, idx + 2);
+    let windowText = '';
+    for (let j = si; j <= ei; j++) {
+      windowText += ' ' + allSegs[j].querySelector('.seg-text').textContent.toLowerCase();
+    }
+
+    const matched = clauses.some(clause => {
+      if (clause.type === 'and') {
+        return clause.words.every(w => matchWholeWord(windowText, w));
+      } else {
+        return matchWholeWord(windowText, clause.phrase);
+      }
+    });
+
+    if (matched) {
+      el.classList.add('search-match');
+      searchMatches.push(el);
+
+      // Highlight matching terms in the segment text
+      let highlighted = escHtml(text);
+      for (const clause of clauses) {
+        if (clause.type === 'and') {
+          for (const w of clause.words) highlighted = highlightPhrase(highlighted, w);
+        } else {
+          highlighted = highlightPhrase(highlighted, clause.phrase);
+        }
+      }
+      segText.innerHTML = highlighted;
+    }
+  });
+
+  document.getElementById('match-info').textContent = searchMatches.length > 0
+    ? `${searchMatches.length} match${searchMatches.length === 1 ? '' : 'es'}`
+    : 'No matches';
+
+  if (searchMatches.length > 0) {
+    searchMatchIndex = 0;
+    scrollToMatch();
+  }
+}
+
+function nextMatch() {
+  if (searchMatches.length === 0) return;
+  searchMatchIndex = (searchMatchIndex + 1) % searchMatches.length;
+  scrollToMatch();
+}
+
+function prevMatch() {
+  if (searchMatches.length === 0) return;
+  searchMatchIndex = (searchMatchIndex - 1 + searchMatches.length) % searchMatches.length;
+  scrollToMatch();
+}
+
+function scrollToMatch() {
+  if (searchMatchIndex < 0 || searchMatchIndex >= searchMatches.length) return;
+  const el = searchMatches[searchMatchIndex];
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  document.getElementById('match-info').textContent =
+    `${searchMatchIndex + 1} of ${searchMatches.length}`;
+}
+
+// ── GLOBAL SEARCH ─────────────────────────────────────────────────────────
+let _searchTimer = null;
+function onGlobalSearch(value) {
+  clearTimeout(_searchTimer);
+  const hasQuery = value.trim().length > 0;
+  document.getElementById('date-range-bar').style.display = hasQuery ? 'flex' : 'none';
+  _searchTimer = setTimeout(() => renderContent(), hasQuery ? 300 : 0);
+}
+
+function clearDateRange() {
+  document.getElementById('search-date-from').value = '';
+  document.getElementById('search-date-to').value = '';
+  onGlobalSearch(document.getElementById('global-search').value);
+}
+
+function escapeRegex(str) {
+  return String(str || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function buildWholeTermRegex(term, flags = 'i', captureTerm = false) {
+  const escaped = escapeRegex(term);
+  const boundaryClass = '\\p{L}\\p{N}';
+  const prefix = `(^|[^${boundaryClass}])`;
+  const suffix = `(?=$|[^${boundaryClass}])`;
+  const source = captureTerm
+    ? `${prefix}(${escaped})${suffix}`
+    : `${prefix}${escaped}${suffix}`;
+  const normalizedFlags = flags.includes('u') ? flags : `${flags}u`;
+  return new RegExp(source, normalizedFlags);
+}
+
+function formatSearchClause(clause) {
+  if (clause.type === 'and') {
+    return `(${clause.words.map(escHtml).join(' + ')})`;
+  }
+  return `"${escHtml(clause.phrase)}"`;
+}
+
+// ── SHIFT-CLICK TO SELECT RANGE ────────────────────────────────────────────
+function highlightSegments(from, to) {
+  const segs = document.querySelectorAll('.transcript-segment');
+  for (let i = from; i <= to && i < segs.length; i++) {
+    segs[i].classList.add('selected');
+  }
+}
+
+function clearSelection() {
+  document.querySelectorAll('.transcript-segment.selected').forEach(el => el.classList.remove('selected'));
+}
+
+function showClipToolbar() {
+  const segs = document.querySelectorAll('.transcript-segment');
+  const endIdx = Math.max(selectionStart, selectionEnd);
+  const lastSeg = segs[endIdx];
+  if (!lastSeg) return;
+
+  const rect = lastSeg.getBoundingClientRect();
+  const toolbar = document.getElementById('clip-toolbar');
+  toolbar.style.top = (rect.bottom + 4) + 'px';
+  toolbar.style.left = (rect.left + 60) + 'px';
+  toolbar.classList.add('visible');
+}
+
+function cancelSelection() {
+  clearSelection();
+  document.getElementById('clip-toolbar').classList.remove('visible');
+  selectionStart = null;
+  selectionEnd = null;
+}
+
+function getSelectionRange() {
+  if (selectionStart === null || selectionEnd === null) return null;
+  const from = Math.min(selectionStart, selectionEnd);
+  const to = Math.max(selectionStart, selectionEnd);
+  const segs = document.querySelectorAll('.transcript-segment');
+  const startSeg = segs[from];
+  const endSeg = segs[to];
+  if (!startSeg || !endSeg) return null;
+
+  const texts = [];
+  for (let i = from; i <= to; i++) {
+    texts.push(segs[i].querySelector('.seg-text').textContent);
+  }
+
+  return {
+    timestamp_start: parseFloat(startSeg.dataset.start),
+    timestamp_end: parseFloat(endSeg.dataset.end),
+    quote: texts.join(' '),
+  };
+}
+
+async function createClipFromSelection() {
+  const range = getSelectionRange();
+  if (!range || !currentItemId) { showToast('Select a section of the transcript first', 'error'); return; }
+
+  const item = DB.content_items[currentItemId];
+  const result = await electronAPI.createClip({
+    content_item_id: currentItemId,
+    content_title: item.title,
+    show_name: item.show_name,
+    content_type: item.content_type,
+    date: item.date,
+    timestamp_start: range.timestamp_start,
+    timestamp_end: range.timestamp_end,
+    quote: range.quote,
+  });
+
+  if (result.success) {
+    const freshDb = await electronAPI.readDb();
+    if (freshDb) {
+      DB = freshDb;
+      renderTranscript(DB.content_items[currentItemId]);
+      renderClipMarkers(DB.content_items[currentItemId]);
+      updateStats();
+    }
+    showToast('Clip created', 'success');
+    document.getElementById('status-left').textContent = 'Clip created';
+  }
+  cancelSelection();
+}
+
+function addSelectionToCollection(event) {
+  const range = getSelectionRange();
+  if (!range || !currentItemId) { showToast('Select a section of the transcript first', 'error'); return; }
+  const item = DB.content_items[currentItemId];
+  const sbData = encodeURIComponent(JSON.stringify({
+    content_item_id: currentItemId,
+    title: item.title,
+    show_name: item.show_name,
+    date: item.date,
+    timestamp_start: range.timestamp_start,
+    timestamp_end: range.timestamp_end,
+    quote: range.quote,
+  }));
+  showCollectionPicker(event, sbData);
+  cancelSelection();
+}
+
+async function exportFromSelection() {
+  const range = getSelectionRange();
+  if (!range || !currentItemId) { showToast('Select a section of the transcript first', 'error'); return; }
+  await doExport(range.timestamp_start, range.timestamp_end);
+  cancelSelection();
+}
+
+async function exportCurrentClip() {
+  // Export from current playback position (30s window) if no selection
+  const start = Math.max(0, audio.currentTime - 5);
+  const end = Math.min(audio.duration || start + 30, audio.currentTime + 25);
+  await doExport(start, end);
+}
+
+async function doExport(startTime, endTime) {
+  let item = DB.content_items[currentItemId];
+
+  item = await ensureAudioAvailable(currentItemId);
+  if (!item) return;
+
+  const defaultName = (item.title || 'clip').replace(/[^a-zA-Z0-9_-]/g, '_') + '_' + formatTime(startTime).replace(/:/g, '') + '.mp3';
+  const outputPath = await electronAPI.saveAudioDialog(defaultName);
+  if (!outputPath) return;
+
+  document.getElementById('status-left').textContent = 'Exporting...';
+  const result = await electronAPI.cutAudio({
+    inputPath: item.file_path,
+    startTime,
+    endTime,
+    outputPath,
+  });
+
+  if (result.success) {
+    const sizeMB = (result.fileSize / 1048576).toFixed(1);
+    showToast(`Exported ${sizeMB} MB in ${result.elapsed}s`, 'success');
+    document.getElementById('status-left').textContent = `Exported ${sizeMB} MB in ${result.elapsed}s`;
+  } else {
+    showToast('Export failed: ' + result.error, 'error', 6000);
+    document.getElementById('status-left').textContent = 'Export failed: ' + result.error;
+  }
+}
+
+// ── FEED ACTIONS ───────────────────────────────────────────────────────────
+async function refreshFeeds() {
+  const btn = document.getElementById('btn-refresh');
+  btn.textContent = 'Refreshing...';
+  btn.disabled = true;
+  document.getElementById('status-left').textContent = 'Refreshing feeds...';
+
+  try {
+    const result = await electronAPI.refreshFeeds();
+    if (result.success) {
+      await refreshDb();
+      showToast(`Found ${result.totalNew} new episode(s)`, result.totalNew > 0 ? 'success' : 'info');
+      document.getElementById('status-left').textContent = `Found ${result.totalNew} new episode(s)`;
+    } else {
+      showToast(result.error || 'Feed refresh failed', 'error', 6000);
+      document.getElementById('status-left').textContent = result.error || 'Refresh failed';
+    }
+  } catch (err) {
+    showToast('Feed refresh error: ' + err.message, 'error', 6000);
+    document.getElementById('status-left').textContent = 'Refresh error: ' + err.message;
+  }
+
+  btn.textContent = 'Refresh Feeds';
+  btn.disabled = false;
+}
+
+function getFilteredItems() {
+  let items = Object.values(DB.content_items || {});
+  if (currentView === 'recent') {
+    items.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    items = items.slice(0, 20);
+  } else if (currentView === 'show' && currentFilter) {
+    items = items.filter(i => (i.show_name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-') === currentFilter);
+  } else if (currentView === 'year' && currentFilter) {
+    items = items.filter(i => (i.date || '').startsWith(currentFilter));
+  } else if (currentView === 'topic' && currentFilter) {
+    const clipIds = new Set((DB.clips || []).filter(c => c.keyword === currentFilter).map(c => c.content_item_id));
+    items = items.filter(i => clipIds.has(i.id));
+  }
+  return items;
+}
+
+async function batchDownloadCurrentView() {
+  // Re-read DB to get fresh file_path state
+  const freshDb = await electronAPI.readDb();
+  if (freshDb) DB = freshDb;
+  const items = getFilteredItems();
+  const downloadable = items.filter(i => i.audio_url);
+
+  if (downloadable.length === 0) {
+    document.getElementById('status-left').textContent = 'No downloadable audio in this view';
+    return;
+  }
+
+  const btn = document.getElementById('btn-download-all');
+  btn.textContent = `Downloading 0/${downloadable.length}...`;
+  btn.disabled = true;
+  document.getElementById('status-left').textContent = `Checking ${downloadable.length} episodes...`;
+
+  electronAPI.onDownloadProgress((data) => {
+    if (data.batch) {
+      btn.textContent = `Downloading ${data.current}/${data.total}...`;
+      document.getElementById('status-left').textContent =
+        `Downloading ${data.current}/${data.total}` + (data.percent ? ` (${data.percent}%)` : '');
+    }
+  });
+
+  try {
+    const result = await electronAPI.batchDownload(downloadable.map(i => i.id));
+    const freshDb = await electronAPI.readDb();
+    if (freshDb) DB = freshDb;
+    renderContent();
+    updateStats();
+    const msg = `Downloaded ${result.downloaded}, skipped ${result.skipped}` + (result.failed ? `, ${result.failed} failed` : '');
+    showToast(msg, result.failed ? 'error' : 'success');
+    document.getElementById('status-left').textContent = msg;
+  } catch (err) {
+    showToast('Download error: ' + err.message, 'error', 6000);
+    document.getElementById('status-left').textContent = 'Download error: ' + err.message;
+  }
+
+  electronAPI.offDownloadProgress();
+  btn.textContent = 'Download All';
+  btn.disabled = false;
+}
+
+async function scrapeArchive() {
+  const btn = document.getElementById('btn-scrape');
+  btn.textContent = 'Scraping...';
+  btn.disabled = true;
+  document.getElementById('status-left').textContent = 'Scraping The Roar archive...';
+
+  try {
+    electronAPI.onFeedProgress((msg) => {
+      document.getElementById('status-left').textContent = msg;
+    });
+
+    const result = await electronAPI.scrapeRoarArchive(700);
+
+    electronAPI.offFeedProgress();
+
+    if (result.success) {
+      await refreshDb();
+      document.getElementById('status-left').textContent =
+        `Scraped ${result.pagesScraped} pages, found ${result.newCount} new episodes (${result.totalItems} total)`;
+    } else {
+      document.getElementById('status-left').textContent = result.error || 'Scrape failed';
+    }
+  } catch (err) {
+    document.getElementById('status-left').textContent = 'Scrape error: ' + err.message;
+  }
+
+  btn.textContent = 'Scrape Archive';
+  btn.disabled = false;
+}
+
+async function addLocalFile() {
+  const files = await electronAPI.openAudioDialog();
+  if (!files) return;
+
+  for (const file of files) {
+    await electronAPI.addItem(file.path, null);
+  }
+
+  const freshDb = await electronAPI.readDb();
+  if (freshDb) DB = freshDb;
+  renderSidebar();
+  renderContent();
+  updateStats();
+  document.getElementById('status-left').textContent = `Added ${files.length} file(s)`;
+}
+
+// ── SHARED HELPERS ─────────────────────────────────────────────────────────
+async function refreshDb() {
+  const db = await electronAPI.readDb();
+  if (db) { DB = db; renderSidebar(); renderContent(); updateStats(); }
+}
+
+async function ensureAudioAvailable(itemId) {
+  let item = DB.content_items[itemId];
+  const exists = item?.file_path ? await electronAPI.checkFilePath(item.file_path) : false;
+  if (exists) return item;
+
+  if (!item?.audio_url) {
+    showToast('No audio available for this episode', 'error');
+    return null;
+  }
+  showToast('Downloading episode audio...', 'info');
+  const result = await electronAPI.downloadEpisode(itemId);
+  if (!result.success) {
+    showToast('Download failed: ' + result.error, 'error', 6000);
+    return null;
+  }
+  document.getElementById('status-left').textContent = '';
+  const freshDb = await electronAPI.readDb();
+  if (freshDb) DB = freshDb;
+  return DB.content_items[itemId];
+}
+
+// ── UTILITIES ──────────────────────────────────────────────────────────────
+function formatTime(sec) {
+  if (!sec && sec !== 0) return '0:00';
+  sec = Math.round(sec);
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = sec % 60;
+  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+function formatDuration(totalSec) {
+  if (!totalSec) return '';
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
+}
+
+function formatAirDate(dateStr) {
+  try {
+    const d = new Date(dateStr + 'T12:00:00');
+    return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+  } catch {
+    return dateStr;
+  }
+}
+
+function escHtml(str) {
+  return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// ── KEYBOARD SHORTCUTS ─────────────────────────────────────────────────────
+document.addEventListener('keydown', (e) => {
+  // Don't capture when typing in inputs
+  const tag = e.target.tagName.toLowerCase();
+  if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+
+  switch (e.code) {
+    case 'Space':
+      e.preventDefault();
+      togglePlay();
+      break;
+    case 'KeyJ': // Rewind 10s
+      seekRelative(-10);
+      break;
+    case 'KeyK': // Play/Pause
+      togglePlay();
+      break;
+    case 'KeyL': // Forward 10s
+      seekRelative(10);
+      break;
+    case 'ArrowLeft':
+      e.preventDefault();
+      seekRelative(-5);
+      break;
+    case 'ArrowRight':
+      e.preventDefault();
+      seekRelative(5);
+      break;
+    case 'BracketLeft': // [ = slower
+      e.preventDefault();
+      if (audio.playbackRate > 0.5) {
+        audio.playbackRate = Math.round((audio.playbackRate - 0.25) * 100) / 100;
+        document.getElementById('speed-btn').textContent = audio.playbackRate + 'x';
+      }
+      break;
+    case 'BracketRight': // ] = faster
+      e.preventDefault();
+      if (audio.playbackRate < 3) {
+        audio.playbackRate = Math.round((audio.playbackRate + 0.25) * 100) / 100;
+        document.getElementById('speed-btn').textContent = audio.playbackRate + 'x';
+      }
+      break;
+    case 'Escape':
+      if (currentItemId) closeDetail();
+      cancelSelection();
+      break;
+  }
+});
+
+// ── QUICK PREVIEW ──────────────────────────────────────────────────────────
+let _previewAudio = null;
+let _previewBtn = null;
+
+async function previewSoundbite(itemId, timestamp, evt) {
+  let item = DB.content_items[itemId];
+
+  // Stop any existing preview
+  if (_previewAudio) {
+    _previewAudio.pause();
+    if (_previewBtn) { _previewBtn.classList.remove('playing'); _previewBtn.innerHTML = '&#9654;'; }
+  }
+
+  _previewBtn = evt?.target?.closest('.preview-btn') || null;
+
+  // If clicking the same button, just stop
+  if (_previewAudio && _previewAudio._rvItemId === itemId && Math.abs(_previewAudio._rvStart - timestamp) < 1) {
+    _previewAudio = null;
+    _previewBtn = null;
+    return;
+  }
+
+  if (_previewBtn) _previewBtn.innerHTML = '...';
+  item = await ensureAudioAvailable(itemId);
+  if (!item?.file_path) {
+    if (_previewBtn) _previewBtn.innerHTML = '&#9654;';
+    return;
+  }
+
+  _previewAudio = new Audio('file://' + item.file_path);
+  _previewAudio._rvItemId = itemId;
+  _previewAudio._rvStart = timestamp;
+  _previewAudio.currentTime = timestamp;
+
+  if (_previewBtn) _previewBtn.classList.add('playing');
+  _previewBtn.innerHTML = '&#9646;&#9646;';
+
+  _previewAudio.play();
+
+  // Auto-stop after 30 seconds
+  const stopTime = timestamp + 30;
+  _previewAudio.addEventListener('timeupdate', () => {
+    if (_previewAudio.currentTime >= stopTime) {
+      _previewAudio.pause();
+      if (_previewBtn) {
+        _previewBtn.classList.remove('playing');
+        _previewBtn.innerHTML = '&#9654;';
+      }
+    }
+  });
+
+  _previewAudio.addEventListener('ended', () => {
+    if (_previewBtn) {
+      _previewBtn.classList.remove('playing');
+      _previewBtn.innerHTML = '&#9654;';
+    }
+  });
+}
+
+// ── COLLECTIONS ────────────────────────────────────────────────────────────
+let _collectionPickerEl = null;
+
+async function createNewCollection() {
+  const name = prompt('Collection name:');
+  if (!name || !name.trim()) return;
+  await electronAPI.createCollection(name.trim());
+  const freshDb = await electronAPI.readDb();
+  if (freshDb) DB = freshDb;
+  renderSidebar();
+}
+
+function showCollectionPicker(event, encodedData) {
+  // Remove existing picker
+  if (_collectionPickerEl) { _collectionPickerEl.remove(); _collectionPickerEl = null; }
+
+  const collections = DB.collections || {};
+  const picker = document.createElement('div');
+  picker.className = 'collection-picker';
+  picker.style.top = (event.clientY + 4) + 'px';
+  picker.style.left = (event.clientX) + 'px';
+
+  let html = '';
+  for (const [id, col] of Object.entries(collections)) {
+    html += `<div class="collection-picker-item" data-col-id="${id}">${escHtml(col.name)} (${col.items.length})</div>`;
+  }
+  html += `<div class="collection-picker-new">
+    <input type="text" placeholder="New collection..." id="picker-new-name" />
+    <button class="btn btn-sm btn-primary" id="picker-new-btn">+</button>
+  </div>`;
+
+  picker.innerHTML = html;
+  document.body.appendChild(picker);
+  _collectionPickerEl = picker;
+
+  // Click on existing collection
+  picker.querySelectorAll('.collection-picker-item').forEach(el => {
+    el.addEventListener('click', async () => {
+      const sb = JSON.parse(decodeURIComponent(encodedData));
+      await electronAPI.addToCollection(el.dataset.colId, sb);
+      const freshDb = await electronAPI.readDb();
+      if (freshDb) DB = freshDb;
+      renderSidebar();
+      document.getElementById('status-left').textContent = 'Added to ' + el.textContent;
+      picker.remove();
+      _collectionPickerEl = null;
+    });
+  });
+
+  // Create new + add
+  picker.querySelector('#picker-new-btn').addEventListener('click', async () => {
+    const name = picker.querySelector('#picker-new-name').value.trim();
+    if (!name) return;
+    const res = await electronAPI.createCollection(name);
+    if (res.success) {
+      const sb = JSON.parse(decodeURIComponent(encodedData));
+      await electronAPI.addToCollection(res.id, sb);
+      const freshDb = await electronAPI.readDb();
+      if (freshDb) DB = freshDb;
+      renderSidebar();
+      document.getElementById('status-left').textContent = 'Created "' + name + '" and added clip';
+    }
+    picker.remove();
+    _collectionPickerEl = null;
+  });
+
+  picker.querySelector('#picker-new-name').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') picker.querySelector('#picker-new-btn').click();
+  });
+
+  // Close on click outside
+  setTimeout(() => {
+    document.addEventListener('click', function handler(e) {
+      if (!picker.contains(e.target)) {
+        picker.remove();
+        _collectionPickerEl = null;
+        document.removeEventListener('click', handler);
+      }
+    });
+  }, 50);
+}
+
+function renderCollectionView(collectionId) {
+  const grid = document.getElementById('episode-grid');
+  const collection = (DB.collections || {})[collectionId];
+  if (!collection) { grid.innerHTML = '<div class="empty-state"><h3>Collection not found</h3></div>'; return; }
+
+  const items = collection.items || [];
+
+  let header = `<div class="search-results-header" style="display:flex; justify-content:space-between; align-items:center;">
+    <span>${escHtml(collection.name)} -- ${items.length} clip${items.length === 1 ? '' : 's'}</span>
+    <div style="display:flex; gap:6px;">
+      <button class="btn btn-sm btn-accent" onclick="exportCollection('${collectionId}')">Export All to Folder</button>
+      <button class="btn btn-sm" onclick="deleteCollection('${collectionId}')" style="color:var(--error);">Delete Collection</button>
+    </div>
+  </div>`;
+
+  if (items.length === 0) {
+    grid.innerHTML = header + '<div class="empty-state"><p>Add soundbites from search results using the "+ Collection" button.</p></div>';
+    return;
+  }
+
+  grid.innerHTML = header + items.map((sb, i) => {
+    return `<div class="soundbite-card">
+      <div class="soundbite-meta">
+        <button class="preview-btn" onclick="event.stopPropagation(); previewSoundbite('${sb.content_item_id}', ${sb.timestamp_start}, event)" title="Preview">&#9654;</button>
+        <span class="sb-show">${escHtml(sb.show_name || '')}</span>
+        <span class="sb-date">${sb.date ? formatAirDate(sb.date) : ''}</span>
+        <span class="sb-time">${formatTime(sb.timestamp_start)} - ${formatTime(sb.timestamp_end)}</span>
+      </div>
+      <div class="soundbite-quote" onclick="openEpisodeAtTime('${sb.content_item_id}', ${sb.timestamp_start})">${escHtml(sb.quote)}</div>
+      <div class="sb-actions">
+        <button class="btn btn-sm" onclick="openEpisodeAtTime('${sb.content_item_id}', ${sb.timestamp_start})">Open</button>
+        <button class="btn btn-sm" onclick="removeFromCollection('${collectionId}', ${i})" style="color:var(--error);">Remove</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function exportCollection(collectionId) {
+  document.getElementById('status-left').textContent = 'Exporting collection...';
+  const result = await electronAPI.exportCollection(collectionId);
+  if (result.success) {
+    document.getElementById('status-left').textContent = `Exported ${result.exported} clips` + (result.failed ? `, ${result.failed} failed` : '');
+  } else if (!result.canceled) {
+    document.getElementById('status-left').textContent = result.error || 'Export failed';
+  }
+}
+
+async function deleteCollection(collectionId) {
+  if (!confirm('Delete this collection?')) return;
+  await electronAPI.deleteCollection(collectionId);
+  const freshDb = await electronAPI.readDb();
+  if (freshDb) DB = freshDb;
+  renderSidebar();
+  navigate('episodes');
+}
+
+async function removeFromCollection(collectionId, index) {
+  await electronAPI.removeFromCollection(collectionId, index);
+  const freshDb = await electronAPI.readDb();
+  if (freshDb) DB = freshDb;
+  renderSidebar();
+  renderCollectionView(collectionId);
+}
+
+// ── AUTO-TRANSCRIBE ON DOWNLOAD ────────────────────────────────────────────
+// After opening an episode that just downloaded, offer to transcribe
+async function maybeAutoTranscribe(itemId) {
+  const item = DB.content_items[itemId];
+  if (!item || !item.file_path || item.processed_at) return;
+
+  document.getElementById('status-left').textContent = 'Transcribing episode...';
+  const result = await electronAPI.ingestSingleItem(itemId);
+  if (result.status === 'done') {
+    const freshDb = await electronAPI.readDb();
+    if (freshDb) {
+      DB = freshDb;
+      renderTranscript(DB.content_items[itemId]);
+      renderClipMarkers(DB.content_items[itemId]);
+      renderSidebar();
+      updateStats();
+    }
+    document.getElementById('status-left').textContent = 'Transcription complete';
+  } else if (result.status === 'busy') {
+    document.getElementById('status-left').textContent = 'Batch ingestion running -- this episode will be transcribed in the queue';
+  } else {
+    document.getElementById('status-left').textContent = 'Transcription: ' + (result.msg || 'unknown error');
+  }
+}
+
+// ── DB UPDATE LISTENER ─────────────────────────────────────────────────────
+if (window.electronAPI) {
+  electronAPI.onDbUpdated((db) => {
+    DB = db;
+    renderSidebar();
+    if (!currentItemId) renderContent();
+    updateStats();
+  });
+
+  electronAPI.onDownloadProgress((data) => {
+    if (data.status === 'downloading' && data.percent) {
+      document.getElementById('status-left').textContent = `Downloading: ${data.percent}%`;
+    }
+  });
+}
+</script>
+</body>
+</html>

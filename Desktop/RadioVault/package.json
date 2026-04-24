@@ -1,0 +1,105 @@
+{
+  "name": "radiovault",
+  "version": "1.1.4",
+  "description": "RadioVault — Clemson Radio Broadcast Archive & Clipping Tool",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --mac",
+    "release": "APPLE_TEAM_ID=PQ4PV58B72 NOTARY_KEYCHAIN_PROFILE=RadioVault electron-builder --mac --publish never",
+    "publish": "APPLE_TEAM_ID=PQ4PV58B72 NOTARY_KEYCHAIN_PROFILE=RadioVault electron-builder --mac --publish always"
+  },
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.100.1",
+    "electron-updater": "^6.8.3",
+    "ffmpeg-static": "^5.3.0",
+    "keytar": "^7.9.0"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0"
+  },
+  "build": {
+    "appId": "com.radiovault.app",
+    "productName": "RadioVault",
+    "icon": "build/icon.icns",
+    "afterSign": "build/notarize.js",
+    "publish": {
+      "provider": "github",
+      "owner": "treydoe1",
+      "repo": "radiovault"
+    },
+    "mac": {
+      "category": "public.app-category.productivity",
+      "identity": "RAYMOND RANDOLPH KEYS (PQ4PV58B72)",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64"
+          ]
+        }
+      ]
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "ingest.js",
+      "feeds.js",
+      "taxonomy.js",
+      "app.html",
+      "settings.html",
+      "onboarding.html",
+      "vault_db.json",
+      "teaser_metadata.json",
+      "package.json",
+      "node_modules/ffmpeg-static/**",
+      "node_modules/keytar/**",
+      "node_modules/@supabase/**",
+      "node_modules/electron-updater/**",
+      "node_modules/semver/**",
+      "node_modules/lazy-val/**",
+      "node_modules/builder-util-runtime/**",
+      "supabase.js",
+      "mlx_transcribe.py",
+      "whisper_transcribe.py"
+    ],
+    "asarUnpack": [
+      "node_modules/ffmpeg-static/**",
+      "node_modules/keytar/**",
+      "mlx_transcribe.py",
+      "whisper_transcribe.py"
+    ],
+    "dmg": {
+      "title": "RadioVault",
+      "contents": [
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ],
+      "window": {
+        "width": 540,
+        "height": 400
+      }
+    }
+  }
+}

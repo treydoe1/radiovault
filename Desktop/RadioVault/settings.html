@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RadioVault - Settings</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' data: blob: file:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https: http:; object-src 'none'; base-uri 'none'; form-action 'self'">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --primary: #522D80; --primary-light: #7B52AB; --accent: #F66733;
+    --surface: #f7f8fc; --surface-low: #f0f2f8; --white: #ffffff;
+    --text: #1a1c24; --muted: #4a4d5a;
+    --border: rgba(26,28,36,0.08); --outline: rgba(26,28,36,0.12);
+    --success: #2E7D32; --error: #C62828;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Inter', -apple-system, sans-serif; background: var(--surface); color: var(--text); }
+  header {
+    background: linear-gradient(160deg, #1a1c28 0%, #22243a 100%);
+    color: white; padding: 0 32px 0 88px; height: 56px;
+    display: flex; align-items: center; gap: 16px; -webkit-app-region: drag;
+  }
+  header * { -webkit-app-region: no-drag; }
+  .is-fullscreen header { padding-left: 32px; }
+  header h1 { font-family: 'Space Grotesk', sans-serif; font-size: 18px; font-weight: 700; }
+  .btn-back { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; border-radius: 6px; padding: 6px 14px; font-size: 12px; cursor: pointer; }
+  .btn-back:hover { background: rgba(255,255,255,0.2); }
+  .container { max-width: 720px; margin: 0 auto; padding: 32px 24px; }
+  .section { background: var(--white); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin-bottom: 20px; }
+  .section h2 { font-family: 'Space Grotesk', sans-serif; font-size: 16px; font-weight: 700; margin-bottom: 16px; }
+  .section p { font-size: 13px; color: var(--muted); margin-bottom: 12px; }
+  label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; margin-top: 14px; }
+  label:first-of-type { margin-top: 0; }
+  input[type="text"], input[type="password"] { width: 100%; padding: 10px 14px; border: 1.5px solid var(--outline); border-radius: 8px; font-size: 13px; background: var(--surface-low); outline: none; }
+  input:focus { border-color: var(--primary); }
+  .feed-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .feed-row input { flex: 1; }
+  .feed-row .feed-title { font-size: 12px; color: var(--muted); margin-left: 4px; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .btn-primary { background: var(--primary); color: white; }
+  .btn-primary:hover { background: var(--primary-light); }
+  .btn-danger { background: var(--error); color: white; }
+  .btn-danger:hover { opacity: 0.9; }
+  .btn-outline { background: transparent; border: 1.5px solid var(--outline); color: var(--text); }
+  .btn-outline:hover { background: var(--surface-low); }
+  .btn-sm { padding: 6px 12px; font-size: 12px; }
+  .status { font-size: 12px; margin-top: 8px; padding: 6px 10px; border-radius: 6px; display: none; }
+  .status.show { display: block; }
+  .status.ok { background: #E8F5E9; color: var(--success); }
+  .status.err { background: #FFEBEE; color: var(--error); }
+  .key-status { display: inline-block; font-size: 12px; margin-left: 8px; color: var(--muted); }
+  .key-status.set { color: var(--success); }
+  .tax-category { border: 1.5px solid var(--outline); border-radius: 8px; margin-bottom: 10px; overflow: hidden; }
+  .tax-category-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--surface-low); cursor: pointer; font-size: 13px; font-weight: 600; }
+  .tax-category-header:hover { background: var(--surface); }
+  .tax-category-header .arrow { font-size: 11px; color: var(--muted); transition: transform 0.15s; margin-right: 8px; }
+  .tax-category-header .arrow.open { transform: rotate(90deg); }
+  .tax-category-header .left { display: flex; align-items: center; gap: 4px; }
+  .tax-category-body { display: none; padding: 12px 14px; }
+  .tax-category-body.open { display: block; }
+  .tax-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+  .tax-chip { display: inline-flex; align-items: center; gap: 4px; background: var(--surface-low); border: 1px solid var(--outline); border-radius: 20px; padding: 4px 10px; font-size: 12px; }
+  .tax-chip .remove-kw { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 14px; padding: 0 0 0 2px; }
+  .tax-chip .remove-kw:hover { color: var(--error); }
+  .tax-add-row { display: flex; gap: 6px; align-items: center; }
+  .tax-add-row input { flex: 1; }
+  .tax-count { font-size: 11px; font-weight: 400; color: var(--muted); margin-left: 6px; }
+</style>
+</head>
+<body>
+
+<header>
+  <button class="btn-back" onclick="window.location.href='app.html'">Back</button>
+  <h1>Settings</h1>
+</header>
+
+<div class="container">
+
+  <!-- TEAM SETUP -->
+  <div class="section">
+    <h2>Team Setup</h2>
+    <p>Import a team config file to load Supabase, Groq, and Anthropic credentials in one step.</p>
+    <div id="team-name-display" style="font-weight:600; margin-bottom:10px; display:none;"></div>
+    <div style="display:flex; gap:8px;">
+      <button class="btn btn-primary btn-sm" onclick="importTeam()">Import Config</button>
+      <button class="btn btn-outline btn-sm" onclick="exportTeam()">Export Config</button>
+    </div>
+    <div class="status" id="team-status"></div>
+  </div>
+
+  <!-- RSS FEEDS -->
+  <div class="section">
+    <h2>RSS Feeds</h2>
+    <p>Add podcast or RSS feed URLs. RadioVault will discover episodes and download audio for transcription.</p>
+    <div id="feeds-list"></div>
+    <div class="feed-row" style="margin-top:8px;">
+      <input type="text" id="new-feed-url" placeholder="https://feeds.example.com/podcast.xml" />
+      <button class="btn btn-primary btn-sm" onclick="addFeed()">Add Feed</button>
+    </div>
+    <div class="status" id="feeds-status"></div>
+  </div>
+
+  <!-- SUPABASE -->
+  <div class="section">
+    <h2>Supabase Sync</h2>
+    <p>Cloud database for syncing transcripts and clips across machines.</p>
+    <label>Supabase URL</label>
+    <input type="text" id="supabase-url" placeholder="https://xxx.supabase.co" />
+    <label>Service Key</label>
+    <input type="password" id="supabase-key" placeholder="eyJ..." />
+    <div style="margin-top:12px; display:flex; gap:8px;">
+      <button class="btn btn-primary btn-sm" onclick="saveSupabase()">Save</button>
+      <button class="btn btn-outline btn-sm" onclick="testSupabase()">Test Connection</button>
+      <button class="btn btn-outline btn-sm" onclick="syncSupabase()">Sync Now</button>
+    </div>
+    <span class="key-status" id="supabase-status"></span>
+    <div class="status" id="supabase-result"></div>
+  </div>
+
+  <!-- SHARED MEDIA -->
+  <div class="section">
+    <h2>Shared Media Path</h2>
+    <p>Point this to a folder on CAMS (or any shared drive). Audio downloads will be stored here so everyone on the team can play and export without re-downloading.</p>
+    <div class="feed-row">
+      <input type="text" id="shared-media-path" placeholder="/Volumes/CAMS/RadioVault" readonly />
+      <button class="btn btn-primary btn-sm" onclick="browseSharedMedia()">Browse</button>
+      <button class="btn btn-outline btn-sm" onclick="clearSharedMedia()">Clear</button>
+    </div>
+    <div class="status" id="shared-media-status"></div>
+  </div>
+
+  <!-- API KEYS -->
+  <div class="section">
+    <h2>API Keys</h2>
+    <p>Stored in macOS Keychain. Never written to disk.</p>
+    <label>Groq API Key <span class="key-status" id="groq-status"></span></label>
+    <div class="feed-row">
+      <input type="password" id="groq-key" placeholder="gsk_..." />
+      <button class="btn btn-primary btn-sm" onclick="saveGroqKey()">Save</button>
+      <button class="btn btn-outline btn-sm" onclick="clearGroqKey()">Clear</button>
+    </div>
+    <label>Anthropic API Key <span class="key-status" id="anthropic-status"></span></label>
+    <p style="font-size:12px; margin-top:-4px;">Used for AI summaries and key moment detection after transcription.</p>
+    <div class="feed-row">
+      <input type="password" id="anthropic-key" placeholder="sk-ant-..." />
+      <button class="btn btn-primary btn-sm" onclick="saveAnthropicKey()">Save</button>
+      <button class="btn btn-outline btn-sm" onclick="clearAnthropicKey()">Clear</button>
+    </div>
+  </div>
+
+  <!-- TRANSCRIPTION -->
+  <div class="section">
+    <h2>Transcription</h2>
+    <p>Local Whisper runs on-device (Apple Silicon). Groq is faster but requires an API key. For long broadcasts (2+ hours), Local Whisper is recommended.</p>
+    <div style="display:flex; gap:12px; margin-bottom:16px;">
+      <label style="display:flex; align-items:center; gap:6px; cursor:pointer; margin:0;">
+        <input type="radio" name="transcription-provider" value="local" onchange="setProvider('local')" />
+        Local Whisper (MLX)
+      </label>
+      <label style="display:flex; align-items:center; gap:6px; cursor:pointer; margin:0;">
+        <input type="radio" name="transcription-provider" value="groq" onchange="setProvider('groq')" />
+        Groq API
+      </label>
+    </div>
+    <div id="local-whisper-options" style="display:none;">
+      <label>Model Size</label>
+      <select id="whisper-model" onchange="setWhisperModel(this.value)" style="padding:8px 12px; border:1.5px solid var(--outline); border-radius:8px; font-size:13px; background:var(--surface-low);">
+        <option value="base">Base (fastest, least accurate)</option>
+        <option value="small">Small</option>
+        <option value="medium">Medium</option>
+        <option value="large" selected>Large (slowest, most accurate)</option>
+      </select>
+    </div>
+    <div class="status" id="provider-status"></div>
+  </div>
+
+  <!-- TAXONOMY EDITOR -->
+  <div class="section">
+    <h2>Taxonomy Editor</h2>
+    <p>Keyword categories used for clip extraction from broadcast transcripts.</p>
+    <div id="taxonomy-editor"></div>
+    <div style="margin-top:12px; display:flex; gap:8px; align-items:center;">
+      <input type="text" id="new-category-name" placeholder="New category name" style="max-width:220px;" />
+      <button class="btn btn-outline btn-sm" onclick="addCategory()">+ Add Category</button>
+    </div>
+    <div class="status" id="taxonomy-status"></div>
+  </div>
+
+  <!-- INGESTION -->
+  <div class="section">
+    <h2>Ingestion</h2>
+    <p>Transcribe downloaded episodes and extract clips. AI summaries are generated if an Anthropic API key is configured.</p>
+    <label>Only process episodes after</label>
+    <div style="display:flex; gap:8px; align-items:center; margin-bottom:14px;">
+      <input type="date" id="ingest-cutoff" style="padding:8px 12px; border:1.5px solid var(--outline); border-radius:8px; font-size:13px; background:var(--surface-low);" onchange="setCutoffDate(this.value)" />
+      <button class="btn btn-outline btn-sm" onclick="clearCutoffDate()">Clear (process all)</button>
+      <span id="cutoff-status" style="font-size:12px; color:var(--muted);"></span>
+    </div>
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+      <button class="btn btn-primary" onclick="runIngest()">Transcribe & Create Clips</button>
+      <button class="btn btn-outline" onclick="runIngest('--reclip')">Re-clip with Updated Taxonomy</button>
+      <button class="btn btn-outline" onclick="runIngest('--force')">Force Re-process All</button>
+      <button class="btn btn-danger btn-sm" id="btn-cancel" onclick="cancelIngest()" style="display:none;">Cancel</button>
+    </div>
+    <div class="status" id="ingest-status"></div>
+    <pre id="ingest-log" style="margin-top:12px; font-size:11px; color:var(--muted); max-height:300px; overflow-y:auto; display:none; background:var(--surface-low); padding:12px; border-radius:8px;"></pre>
+  </div>
+
+  <!-- STORAGE -->
+  <div class="section">
+    <h2>Storage</h2>
+    <p id="storage-copy">Downloaded audio files are cached locally. Transcribed episodes can be safely cleared -- audio re-downloads on demand when you need to export a clip.</p>
+    <p id="cache-location-display" style="font-size:12px; color:var(--muted);"></p>
+    <p id="cache-size-display" style="font-weight:600;"></p>
+    <div style="display:flex; gap:8px; margin-top:8px;">
+      <button class="btn btn-danger btn-sm" id="clear-cache-btn" onclick="clearCache()">Clear Audio Cache</button>
+    </div>
+    <div class="status" id="cache-status"></div>
+  </div>
+
+  <!-- ABOUT -->
+  <div class="section">
+    <h2>About</h2>
+    <p>RadioVault <span id="app-version"></span></p>
+    <p>Clemson Athletics Radio Broadcast Archive</p>
+  </div>
+
+</div>
+
+<script>
+let settings = {};
+let cacheInfo = null;
+
+async function loadSettings() {
+  settings = (await window.electronAPI.readSettings()) || {};
+
+  renderFeeds();
+
+  const provider = settings?.ingestion?.transcription_provider || 'groq';
+  document.querySelector(`input[name="transcription-provider"][value="${provider}"]`).checked = true;
+  document.getElementById('local-whisper-options').style.display = provider === 'local' ? 'block' : 'none';
+  if (settings?.ingestion?.local_whisper_model) {
+    document.getElementById('whisper-model').value = settings.ingestion.local_whisper_model;
+  }
+
+  const [hasGroq, hasAnthropic, hasSupabase] = await Promise.all([
+    window.electronAPI.hasGroqKey(),
+    window.electronAPI.hasAnthropicKey(),
+    window.electronAPI.hasSupabaseKey(),
+  ]);
+  setKeyStatus('groq-status', hasGroq);
+  setKeyStatus('anthropic-status', hasAnthropic);
+  setKeyStatus('supabase-status', hasSupabase);
+
+  if (settings.team_name) {
+    const el = document.getElementById('team-name-display');
+    el.textContent = 'Team: ' + settings.team_name;
+    el.style.display = 'block';
+  }
+
+  const version = await window.electronAPI.getAppVersion();
+  document.getElementById('app-version').textContent = 'v' + version;
+
+  // Shared media path
+  if (settings?.shared_media_path) {
+    document.getElementById('shared-media-path').value = settings.shared_media_path;
+  }
+
+  // Ingest cutoff date
+  if (settings?.ingestion?.ingest_cutoff_date) {
+    document.getElementById('ingest-cutoff').value = settings.ingestion.ingest_cutoff_date;
+    document.getElementById('cutoff-status').textContent = 'Only episodes from ' + settings.ingestion.ingest_cutoff_date + ' onward';
+  }
+
+  renderTaxonomy();
+  reattachIngest();
+}
+
+function setKeyStatus(elId, isSet) {
+  const el = document.getElementById(elId);
+  if (isSet) { el.textContent = '(set)'; el.classList.add('set'); }
+  else { el.textContent = '(not set)'; el.classList.remove('set'); }
+}
+
+// ── RSS Feeds ──
+function renderFeeds() {
+  const list = document.getElementById('feeds-list');
+  const feedUrls = settings.feed_urls || [];
+  if (feedUrls.length === 0) {
+    list.innerHTML = '<p style="font-size:12px; color:var(--muted);">No feeds added yet.</p>';
+    return;
+  }
+  list.innerHTML = feedUrls.map((url, i) => `
+    <div class="feed-row">
+      <input type="text" value="${url}" readonly style="font-size:12px;" />
+      <button class="btn btn-danger btn-sm" onclick="removeFeed(${i})">Remove</button>
+    </div>
+  `).join('');
+}
+
+async function addFeed() {
+  const input = document.getElementById('new-feed-url');
+  const url = input.value.trim();
+  if (!url) return;
+
+  showResult('feeds-status', true, 'Validating feed...');
+  const result = await window.electronAPI.addFeed(url);
+  if (result.success) {
+    input.value = '';
+    if (!settings.feed_urls) settings.feed_urls = [];
+    if (!settings.feed_urls.includes(url)) settings.feed_urls.push(url);
+    renderFeeds();
+    showResult('feeds-status', true, 'Added: ' + (result.feed?.title || url));
+  } else {
+    showResult('feeds-status', false, 'Failed: ' + result.error);
+  }
+}
+
+async function removeFeed(index) {
+  const url = settings.feed_urls[index];
+  await window.electronAPI.removeFeed(url);
+  settings.feed_urls.splice(index, 1);
+  renderFeeds();
+  showResult('feeds-status', true, 'Feed removed');
+}
+
+async function saveSettings() {
+  const result = await window.electronAPI.writeSettings(settings);
+  const el = document.getElementById('feeds-status');
+  if (result.success) { el.textContent = 'Saved.'; el.className = 'status show ok'; }
+  else { el.textContent = 'Error: ' + result.error; el.className = 'status show err'; }
+  setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+// ── Team ──
+async function importTeam() {
+  showResult('team-status', true, 'Importing...');
+  const result = await window.electronAPI.loadTeamConfig();
+  showResult('team-status', result.ok, result.msg);
+  if (result.ok) await loadSettings();
+}
+
+async function exportTeam() {
+  const result = await window.electronAPI.exportTeamConfig();
+  showResult('team-status', result.ok, result.msg);
+}
+
+// ── Supabase ──
+async function saveSupabase() {
+  const url = document.getElementById('supabase-url').value.trim();
+  const key = document.getElementById('supabase-key').value.trim();
+  if (!url || !key) return;
+  const ok = await window.electronAPI.setSupabaseKey(url, key);
+  setKeyStatus('supabase-status', ok);
+  showResult('supabase-result', ok, ok ? 'Saved.' : 'Failed.');
+}
+
+async function testSupabase() {
+  const result = await window.electronAPI.testSupabaseConnection();
+  showResult('supabase-result', result.ok, result.msg);
+}
+
+async function syncSupabase() {
+  showResult('supabase-result', true, 'Syncing...');
+  const result = await window.electronAPI.syncSupabase();
+  showResult('supabase-result', result.ok, result.msg);
+}
+
+// ── API Keys ──
+async function saveGroqKey() {
+  const val = document.getElementById('groq-key').value.trim();
+  if (!val) return;
+  const ok = await window.electronAPI.setGroqKey(val);
+  setKeyStatus('groq-status', ok);
+  document.getElementById('groq-key').value = '';
+}
+async function clearGroqKey() { await window.electronAPI.clearGroqKey(); setKeyStatus('groq-status', false); }
+async function saveAnthropicKey() {
+  const val = document.getElementById('anthropic-key').value.trim();
+  if (!val) return;
+  const ok = await window.electronAPI.setAnthropicKey(val);
+  setKeyStatus('anthropic-status', ok);
+  document.getElementById('anthropic-key').value = '';
+}
+async function clearAnthropicKey() { await window.electronAPI.clearAnthropicKey(); setKeyStatus('anthropic-status', false); }
+
+function showResult(elId, ok, msg) {
+  const el = document.getElementById(elId);
+  el.textContent = msg;
+  el.className = 'status show ' + (ok ? 'ok' : 'err');
+  if (ok) setTimeout(() => el.classList.remove('show'), 5000);
+}
+
+function escHtml(str) {
+  return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// ── Transcription ──
+async function setProvider(value) {
+  if (!settings.ingestion) settings.ingestion = {};
+  settings.ingestion.transcription_provider = value;
+  document.getElementById('local-whisper-options').style.display = value === 'local' ? 'block' : 'none';
+  await saveSettings();
+  showResult('provider-status', true, value === 'local' ? 'Using Local Whisper (MLX)' : 'Using Groq API');
+}
+
+async function setWhisperModel(value) {
+  if (!settings.ingestion) settings.ingestion = {};
+  settings.ingestion.local_whisper_model = value;
+  await saveSettings();
+}
+
+// ── Shared media path ──
+async function browseSharedMedia() {
+  const folder = await window.electronAPI.openFolderDialog();
+  if (!folder) return;
+  settings.shared_media_path = folder;
+  document.getElementById('shared-media-path').value = folder;
+  await saveSettings();
+  await loadCacheSize();
+  showResult('shared-media-status', true, 'Audio will be stored at: ' + folder);
+}
+
+async function clearSharedMedia() {
+  settings.shared_media_path = null;
+  document.getElementById('shared-media-path').value = '';
+  await saveSettings();
+  await loadCacheSize();
+  showResult('shared-media-status', true, 'Using local cache');
+}
+
+// ── Ingest date cutoff ──
+async function setCutoffDate(value) {
+  if (!settings.ingestion) settings.ingestion = {};
+  settings.ingestion.ingest_cutoff_date = value || null;
+  await saveSettings();
+  document.getElementById('cutoff-status').textContent = value ? 'Only episodes from ' + value + ' onward will be processed' : '';
+}
+
+async function clearCutoffDate() {
+  document.getElementById('ingest-cutoff').value = '';
+  if (!settings.ingestion) settings.ingestion = {};
+  settings.ingestion.ingest_cutoff_date = null;
+  await saveSettings();
+  document.getElementById('cutoff-status').textContent = 'All episodes will be processed';
+  setTimeout(() => document.getElementById('cutoff-status').textContent = '', 3000);
+}
+
+// ── Ingestion ──
+function attachIngestListeners() {
+  const logEl = document.getElementById('ingest-log');
+  window.electronAPI.offIngestOutput();
+  window.electronAPI.onIngestOutput((line) => {
+    logEl.textContent += line + '\n';
+    logEl.scrollTop = logEl.scrollHeight;
+  });
+}
+
+async function reattachIngest() {
+  try {
+    const status = await window.electronAPI.getIngestStatus();
+    if (status.running) {
+      document.getElementById('ingest-status').textContent = 'Ingestion in progress...';
+      document.getElementById('ingest-status').className = 'status show ok';
+      const logEl = document.getElementById('ingest-log');
+      logEl.style.display = 'block';
+      logEl.textContent = (status.logLines || []).join('\n') + '\n';
+      logEl.scrollTop = logEl.scrollHeight;
+      document.getElementById('btn-cancel').style.display = 'inline-flex';
+      attachIngestListeners();
+    }
+  } catch (_) {}
+}
+
+async function runIngest(flag) {
+  const statusEl = document.getElementById('ingest-status');
+  const logEl = document.getElementById('ingest-log');
+  const cancelBtn = document.getElementById('btn-cancel');
+
+  const current = await window.electronAPI.getIngestStatus();
+  if (current.running) { reattachIngest(); return; }
+
+  statusEl.textContent = 'Starting ingestion...';
+  statusEl.className = 'status show ok';
+  logEl.style.display = 'block';
+  logEl.textContent = '';
+  cancelBtn.style.display = 'inline-flex';
+  attachIngestListeners();
+
+  try {
+    const result = await window.electronAPI.runIngest(flag || null);
+    if (result.status === 'done') statusEl.textContent = 'Ingestion complete.';
+    else if (result.status === 'already_running') { reattachIngest(); return; }
+    else { statusEl.textContent = 'Error: ' + (result.error || 'Unknown'); statusEl.className = 'status show err'; }
+  } catch (err) {
+    statusEl.textContent = 'Error: ' + err.message;
+    statusEl.className = 'status show err';
+  }
+  cancelBtn.style.display = 'none';
+  window.electronAPI.offIngestOutput();
+}
+
+async function cancelIngest() {
+  await window.electronAPI.cancelIngest();
+  document.getElementById('btn-cancel').style.display = 'none';
+}
+
+// ── Taxonomy Editor ──
+const DEFAULT_TAXONOMY = {
+  broadcast: ["tiger network","pregame show","postgame show","halftime","halftime show","kickoff","opening drive","broadcast","on the air","radio"],
+  play_by_play: ["touchdown","field goal","interception","fumble","sack","first down","scoring play","two minute warning","overtime","final score","extra point","two point conversion","punt","kickoff return","three and out","fourth down","red zone","goal line","pass complete","incomplete","penalty","flag on the play"],
+  commentary: ["play by play","color commentary","sideline report","call of the game","game of the week","player of the game","key play","turning point","momentum shift","big play"],
+  interviews: ["coach interview","player interview","press conference","postgame interview","pregame interview","head coach","offensive coordinator","defensive coordinator","special teams","position coach","athletic director"],
+  analysis: ["game preview","game recap","injury report","depth chart","matchup","key players","turning point","momentum","season outlook","conference standings","rankings","bowl game","playoff"],
+  athletics: ["clemson","tigers","death valley","memorial stadium","acc","recruiting","transfer portal","nil","signing day","spring practice","fall camp"],
+};
+
+function getTaxonomy() {
+  return { ...DEFAULT_TAXONOMY, ...(settings?.taxonomy || {}) };
+}
+
+const openCategories = new Set();
+
+function renderTaxonomy() {
+  const taxonomy = getTaxonomy();
+  const editor = document.getElementById('taxonomy-editor');
+  editor.innerHTML = '';
+
+  for (const [category, keywords] of Object.entries(taxonomy)) {
+    const isOpen = openCategories.has(category);
+    const cat = document.createElement('div');
+    cat.className = 'tax-category';
+
+    const header = document.createElement('div');
+    header.className = 'tax-category-header';
+    header.innerHTML = `<div class="left"><span class="arrow${isOpen ? ' open' : ''}">&#9654;</span> <span>${escHtml(category)}</span> <span class="tax-count">${keywords.length}</span></div>`;
+    header.addEventListener('click', () => {
+      if (openCategories.has(category)) openCategories.delete(category);
+      else openCategories.add(category);
+      renderTaxonomy();
+    });
+
+    const body = document.createElement('div');
+    body.className = 'tax-category-body' + (isOpen ? ' open' : '');
+    body.innerHTML = `
+      <div class="tax-chips">${keywords.map(kw => `<span class="tax-chip">${escHtml(kw)}<button class="remove-kw" onclick="removeKeyword('${escHtml(category)}','${escHtml(kw)}')">&times;</button></span>`).join('')}</div>
+      <div class="tax-add-row">
+        <input type="text" placeholder="Add keyword..." onkeydown="if(event.key==='Enter')addKeyword('${escHtml(category)}',this)" />
+        <button class="btn btn-outline btn-sm" onclick="addKeyword('${escHtml(category)}',this.previousElementSibling)">Add</button>
+      </div>`;
+
+    cat.appendChild(header);
+    cat.appendChild(body);
+    editor.appendChild(cat);
+  }
+}
+
+function addKeyword(category, input) {
+  const kw = input.value.trim().toLowerCase();
+  if (!kw) return;
+  if (!settings.taxonomy) settings.taxonomy = {};
+  const tax = getTaxonomy();
+  if (!tax[category]) tax[category] = [];
+  if (!tax[category].includes(kw)) tax[category].push(kw);
+  settings.taxonomy[category] = tax[category];
+  saveSettings();
+  openCategories.add(category);
+  renderTaxonomy();
+}
+
+function removeKeyword(category, keyword) {
+  if (!settings.taxonomy) settings.taxonomy = {};
+  const tax = getTaxonomy();
+  tax[category] = (tax[category] || []).filter(k => k !== keyword);
+  settings.taxonomy[category] = tax[category];
+  saveSettings();
+  renderTaxonomy();
+}
+
+function addCategory() {
+  const name = document.getElementById('new-category-name').value.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_');
+  if (!name) return;
+  if (!settings.taxonomy) settings.taxonomy = {};
+  if (!settings.taxonomy[name]) settings.taxonomy[name] = [];
+  document.getElementById('new-category-name').value = '';
+  openCategories.add(name);
+  saveSettings();
+  renderTaxonomy();
+}
+
+async function loadCacheSize() {
+  cacheInfo = await window.electronAPI.getCacheSize();
+
+  const mb = (cacheInfo.size / 1048576).toFixed(0);
+  const gb = (cacheInfo.size / 1073741824).toFixed(1);
+  const display = cacheInfo.size > 1073741824 ? `${gb} GB` : `${mb} MB`;
+
+  const copyEl = document.getElementById('storage-copy');
+  const locationEl = document.getElementById('cache-location-display');
+  const clearBtn = document.getElementById('clear-cache-btn');
+
+  document.getElementById('cache-size-display').textContent = `${cacheInfo.files} audio files, ${display}`;
+
+  if (cacheInfo.shared) {
+    copyEl.textContent = 'Audio is currently stored in the shared media folder. Clearing it here is disabled so one machine cannot wipe team-shared downloads.';
+    locationEl.textContent = cacheInfo.path ? `Shared media path: ${cacheInfo.path}` : 'Shared media path is configured.';
+    clearBtn.disabled = true;
+    clearBtn.textContent = 'Shared Media In Use';
+    clearBtn.style.opacity = '0.55';
+    clearBtn.style.cursor = 'not-allowed';
+  } else {
+    copyEl.textContent = 'Downloaded audio files are cached locally. Transcribed episodes can be safely cleared -- audio re-downloads on demand when you need to export a clip.';
+    locationEl.textContent = cacheInfo.path ? `Local cache: ${cacheInfo.path}` : '';
+    clearBtn.disabled = false;
+    clearBtn.textContent = 'Clear Audio Cache';
+    clearBtn.style.opacity = '';
+    clearBtn.style.cursor = '';
+  }
+}
+
+async function clearCache() {
+  if (cacheInfo?.shared) {
+    showResult('cache-status', false, 'Shared media is active. Disable Shared Media Path first if you need local cache cleanup.');
+    return;
+  }
+  if (!confirm('Delete all cached audio files? Transcripts are kept. Audio re-downloads when needed for clip export.')) return;
+  showResult('cache-status', true, 'Clearing...');
+  const result = await window.electronAPI.clearAudioCache();
+  if (result.success) {
+    const freedGb = (result.freed / 1073741824).toFixed(1);
+    const freedMb = (result.freed / 1048576).toFixed(0);
+    const freedDisplay = result.freed >= 1073741824 ? `${freedGb} GB` : `${freedMb} MB`;
+    showResult('cache-status', true, `Freed ${freedDisplay}`);
+    await loadCacheSize();
+  } else {
+    showResult('cache-status', false, result.error);
+  }
+}
+
+window.addEventListener('DOMContentLoaded', () => { loadSettings(); loadCacheSize(); });
+</script>
+</body>
+</html>
