@@ -75,6 +75,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setGroqKey: (value) => ipcRenderer.invoke('set-groq-key', value),
   clearGroqKey: () => ipcRenderer.invoke('clear-groq-key'),
 
+  // Keychain: OpenAI
+  hasOpenAIKey: () => ipcRenderer.invoke('has-openai-key'),
+  setOpenAIKey: (value) => ipcRenderer.invoke('set-openai-key', value),
+  clearOpenAIKey: () => ipcRenderer.invoke('clear-openai-key'),
+
+  // Keychain: custom OpenAI-compatible transcription
+  hasCustomTranscriptionKey: () => ipcRenderer.invoke('has-custom-transcription-key'),
+  setCustomTranscriptionKey: (value) => ipcRenderer.invoke('set-custom-transcription-key', value),
+  clearCustomTranscriptionKey: () => ipcRenderer.invoke('clear-custom-transcription-key'),
+
   // Keychain: Supabase
   hasSupabaseKey: () => ipcRenderer.invoke('has-supabase-key'),
   setSupabaseKey: (url, key) => ipcRenderer.invoke('set-supabase-key', { url, key }),

@@ -31,7 +31,13 @@ function getSettings() {
 
 function sanitizeIngestionConfig(ingestion) {
   if (!ingestion || typeof ingestion !== 'object') return {};
-  const { groq_api_key, anthropic_api_key, ...safeIngestion } = ingestion;
+  const {
+    groq_api_key,
+    openai_api_key,
+    custom_transcription_api_key,
+    anthropic_api_key,
+    ...safeIngestion
+  } = ingestion;
   return safeIngestion;
 }
 
@@ -120,8 +126,33 @@ const APP_VERSION      = PACKAGE_META.version;
 const KEYCHAIN_SERVICE = 'radiovault';
 const ANTHROPIC_KEY_ACCOUNT   = 'anthropic_api_key';
 const GROQ_KEY_ACCOUNT        = 'groq_api_key';
+const OPENAI_KEY_ACCOUNT      = 'openai_api_key';
+const CUSTOM_TRANSCRIPTION_KEY_ACCOUNT = 'custom_transcription_api_key';
 const SUPABASE_URL_ACCOUNT    = 'supabase_url';
 const SUPABASE_KEY_ACCOUNT    = 'supabase_service_key';
+
+async function getPersonalApiKeys() {
+  const keys = {
+    groq_api_key: '',
+    openai_api_key: '',
+    custom_transcription_api_key: '',
+    anthropic_api_key: '',
+  };
+  if (!keytar) return keys;
+  try {
+    keys.groq_api_key = (await keytar.getPassword(KEYCHAIN_SERVICE, GROQ_KEY_ACCOUNT)) || '';
+    keys.openai_api_key = (await keytar.getPassword(KEYCHAIN_SERVICE, OPENAI_KEY_ACCOUNT)) || '';
+    keys.custom_transcription_api_key = (await keytar.getPassword(KEYCHAIN_SERVICE, CUSTOM_TRANSCRIPTION_KEY_ACCOUNT)) || '';
+    keys.anthropic_api_key = (await keytar.getPassword(KEYCHAIN_SERVICE, ANTHROPIC_KEY_ACCOUNT)) || '';
+  } catch (_) {}
+  return keys;
+}
+
+async function attachPersonalApiKeys(settings) {
+  settings.ingestion = settings.ingestion || {};
+  Object.assign(settings.ingestion, await getPersonalApiKeys());
+  return settings;
+}
 
 // ─── Supabase initialization ────────────────────────────────────────────────
 async function initSupabase() {
@@ -711,6 +742,38 @@ ipcMain.handle('clear-groq-key', async () => {
   try { return await keytar.deletePassword(KEYCHAIN_SERVICE, GROQ_KEY_ACCOUNT); } catch { return false; }
 });
 
+// ─── IPC: Keychain (OpenAI) ────────────────────────────────────────────────
+ipcMain.handle('has-openai-key', async () => {
+  if (!keytar) return null;
+  try { return !!(await keytar.getPassword(KEYCHAIN_SERVICE, OPENAI_KEY_ACCOUNT)); } catch { return null; }
+});
+
+ipcMain.handle('set-openai-key', async (event, value) => {
+  if (!keytar) return false;
+  try { await keytar.setPassword(KEYCHAIN_SERVICE, OPENAI_KEY_ACCOUNT, value); return true; } catch { return false; }
+});
+
+ipcMain.handle('clear-openai-key', async () => {
+  if (!keytar) return false;
+  try { return await keytar.deletePassword(KEYCHAIN_SERVICE, OPENAI_KEY_ACCOUNT); } catch { return false; }
+});
+
+// ─── IPC: Keychain (custom OpenAI-compatible transcription) ────────────────
+ipcMain.handle('has-custom-transcription-key', async () => {
+  if (!keytar) return null;
+  try { return !!(await keytar.getPassword(KEYCHAIN_SERVICE, CUSTOM_TRANSCRIPTION_KEY_ACCOUNT)); } catch { return null; }
+});
+
+ipcMain.handle('set-custom-transcription-key', async (event, value) => {
+  if (!keytar) return false;
+  try { await keytar.setPassword(KEYCHAIN_SERVICE, CUSTOM_TRANSCRIPTION_KEY_ACCOUNT, value); return true; } catch { return false; }
+});
+
+ipcMain.handle('clear-custom-transcription-key', async () => {
+  if (!keytar) return false;
+  try { return await keytar.deletePassword(KEYCHAIN_SERVICE, CUSTOM_TRANSCRIPTION_KEY_ACCOUNT); } catch { return false; }
+});
+
 // ─── IPC: Keychain (Supabase) ───────────────────────────────────────────────
 ipcMain.handle('has-supabase-key', async () => {
   if (!keytar) return null;
@@ -793,7 +856,16 @@ ipcMain.handle('load-team-config', async () => {
 
     const loaded = ['supabase'];
     if (config.feed_urls?.length) loaded.push(`${config.feed_urls.length} feeds`);
-    const skippedPersonalKeys = !!(config.groq_api_key || config.anthropic_api_key || config.ingestion?.groq_api_key || config.ingestion?.anthropic_api_key);
+    const skippedPersonalKeys = !!(
+      config.groq_api_key
+      || config.openai_api_key
+      || config.custom_transcription_api_key
+      || config.anthropic_api_key
+      || config.ingestion?.groq_api_key
+      || config.ingestion?.openai_api_key
+      || config.ingestion?.custom_transcription_api_key
+      || config.ingestion?.anthropic_api_key
+    );
     return {
       ok: true,
       msg: 'Team "' + config.team_name + '" configured. Loaded: ' + loaded.join(', ') + '. Synced from cloud.'
@@ -1454,20 +1526,8 @@ ipcMain.handle('ingest-single-item', async (event, itemId) => {
 
   try {
     const { runIngest } = require('./ingest');
-    const settings = getSettings();
+    const settings = await attachPersonalApiKeys(getSettings());
     const workspace = getWorkspacePaths();
-
-    let groqApiKey = '';
-    let anthropicApiKey = '';
-    try {
-      if (keytar) {
-        groqApiKey = (await keytar.getPassword(KEYCHAIN_SERVICE, GROQ_KEY_ACCOUNT)) || '';
-        anthropicApiKey = (await keytar.getPassword(KEYCHAIN_SERVICE, ANTHROPIC_KEY_ACCOUNT)) || '';
-      }
-    } catch (_) {}
-    settings.ingestion = settings.ingestion || {};
-    settings.ingestion.groq_api_key = groqApiKey;
-    settings.ingestion.anthropic_api_key = anthropicApiKey;
 
     // Mark only this item as needing processing
     db.content_items[itemId].processed_at = null;
@@ -1539,21 +1599,8 @@ ipcMain.handle('run-ingest', async (event, flag) => {
 
   try {
     const { runIngest, killActiveTranscription } = require('./ingest');
-    const settings = getSettings();
+    const settings = await attachPersonalApiKeys(getSettings());
     const workspace = getWorkspacePaths();
-
-    // Pull API keys from Keychain
-    let groqApiKey = '';
-    let anthropicApiKey = '';
-    try {
-      if (keytar) {
-        groqApiKey = (await keytar.getPassword(KEYCHAIN_SERVICE, GROQ_KEY_ACCOUNT)) || '';
-        anthropicApiKey = (await keytar.getPassword(KEYCHAIN_SERVICE, ANTHROPIC_KEY_ACCOUNT)) || '';
-      }
-    } catch (_) {}
-    settings.ingestion = settings.ingestion || {};
-    settings.ingestion.groq_api_key = groqApiKey;
-    settings.ingestion.anthropic_api_key = anthropicApiKey;
 
     const force = flag === '--force';
     const reclip = flag === '--reclip';

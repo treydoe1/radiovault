@@ -135,25 +135,40 @@
     <h2>Personal API Keys</h2>
     <p>Bring your own API keys for cloud features. They are stored in macOS Keychain and are never exported in team config files.</p>
     <label>Groq API Key <span class="key-status" id="groq-status"></span></label>
+    <p style="font-size:12px; margin-top:-4px;">Used for Groq cloud transcription.</p>
     <div class="feed-row">
       <input type="password" id="groq-key" placeholder="gsk_..." />
       <button class="btn btn-primary btn-sm" onclick="saveGroqKey()">Save</button>
       <button class="btn btn-outline btn-sm" onclick="clearGroqKey()">Clear</button>
     </div>
-    <label>Anthropic API Key <span class="key-status" id="anthropic-status"></span></label>
-    <p style="font-size:12px; margin-top:-4px;">Used for AI summaries and key moment detection after transcription.</p>
+    <label>OpenAI API Key <span class="key-status" id="openai-status"></span></label>
+    <p style="font-size:12px; margin-top:-4px;">Used for OpenAI transcription and/or OpenAI summaries.</p>
+    <div class="feed-row">
+      <input type="password" id="openai-key" placeholder="sk-..." />
+      <button class="btn btn-primary btn-sm" onclick="saveOpenAIKey()">Save</button>
+      <button class="btn btn-outline btn-sm" onclick="clearOpenAIKey()">Clear</button>
+    </div>
+    <label>Claude / Anthropic API Key <span class="key-status" id="anthropic-status"></span></label>
+    <p style="font-size:12px; margin-top:-4px;">Used for Claude summaries and key moment detection after transcription.</p>
     <div class="feed-row">
       <input type="password" id="anthropic-key" placeholder="sk-ant-..." />
       <button class="btn btn-primary btn-sm" onclick="saveAnthropicKey()">Save</button>
       <button class="btn btn-outline btn-sm" onclick="clearAnthropicKey()">Clear</button>
+    </div>
+    <label>Custom Transcription API Key <span class="key-status" id="custom-transcription-status"></span></label>
+    <p style="font-size:12px; margin-top:-4px;">Used only with the custom OpenAI-compatible transcription endpoint below.</p>
+    <div class="feed-row">
+      <input type="password" id="custom-transcription-key" placeholder="provider key..." />
+      <button class="btn btn-primary btn-sm" onclick="saveCustomTranscriptionKey()">Save</button>
+      <button class="btn btn-outline btn-sm" onclick="clearCustomTranscriptionKey()">Clear</button>
     </div>
   </div>
 
   <!-- TRANSCRIPTION -->
   <div class="section">
     <h2>Transcription</h2>
-    <p>Use Local Whisper on-device, or bring your own Groq API key for cloud transcription. For long broadcasts (2+ hours), Local Whisper is recommended.</p>
-    <div style="display:flex; gap:12px; margin-bottom:16px;">
+    <p>Use Local Whisper on-device, or bring your own API key for Groq, OpenAI, or another OpenAI-compatible transcription service. For long broadcasts (2+ hours), Local Whisper is recommended.</p>
+    <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px;">
       <label style="display:flex; align-items:center; gap:6px; cursor:pointer; margin:0;">
         <input type="radio" name="transcription-provider" value="local" onchange="setProvider('local')" />
         Local Whisper (MLX)
@@ -161,6 +176,14 @@
       <label style="display:flex; align-items:center; gap:6px; cursor:pointer; margin:0;">
         <input type="radio" name="transcription-provider" value="groq" onchange="setProvider('groq')" />
         Groq API
+      </label>
+      <label style="display:flex; align-items:center; gap:6px; cursor:pointer; margin:0;">
+        <input type="radio" name="transcription-provider" value="openai" onchange="setProvider('openai')" />
+        OpenAI API
+      </label>
+      <label style="display:flex; align-items:center; gap:6px; cursor:pointer; margin:0;">
+        <input type="radio" name="transcription-provider" value="custom" onchange="setProvider('custom')" />
+        Custom compatible API
       </label>
     </div>
     <div id="local-whisper-options" style="display:none;">
@@ -171,6 +194,30 @@
         <option value="medium">Medium</option>
         <option value="large" selected>Large (slowest, most accurate)</option>
       </select>
+    </div>
+    <div id="openai-transcription-options" style="display:none;">
+      <label>OpenAI Transcription Model</label>
+      <input type="text" id="openai-transcription-model" placeholder="whisper-1" onchange="setIngestionField('openai_transcription_model', this.value.trim() || 'whisper-1')" />
+      <p style="font-size:12px; color:var(--muted); margin-top:4px;">Default is whisper-1 because RadioVault needs segment timestamps for search and clipping.</p>
+    </div>
+    <div id="custom-transcription-options" style="display:none;">
+      <label>Custom Transcription Endpoint</label>
+      <input type="text" id="custom-transcription-endpoint" placeholder="https://api.example.com/v1/audio/transcriptions" onchange="setIngestionField('custom_transcription_endpoint', this.value.trim())" />
+      <label>Custom Transcription Model</label>
+      <input type="text" id="custom-transcription-model" placeholder="whisper-large-v3" onchange="setIngestionField('custom_transcription_model', this.value.trim())" />
+      <p style="font-size:12px; color:var(--muted); margin-top:4px;">The endpoint must accept OpenAI-style multipart audio transcription requests and return text plus segments.</p>
+    </div>
+    <div style="margin-top:16px;">
+      <label>AI Summary Provider</label>
+      <select id="summary-provider" onchange="setSummaryProvider(this.value)" style="padding:8px 12px; border:1.5px solid var(--outline); border-radius:8px; font-size:13px; background:var(--surface-low);">
+        <option value="off">Off</option>
+        <option value="anthropic">Claude / Anthropic</option>
+        <option value="openai">OpenAI</option>
+      </select>
+      <div id="openai-summary-options" style="display:none; margin-top:10px;">
+        <label>OpenAI Summary Model</label>
+        <input type="text" id="openai-summary-model" placeholder="gpt-4o-mini" onchange="setIngestionField('openai_summary_model', this.value.trim() || 'gpt-4o-mini')" />
+      </div>
     </div>
     <div class="status" id="provider-status"></div>
   </div>
@@ -238,20 +285,32 @@ async function loadSettings() {
   renderFeeds();
 
   const provider = settings?.ingestion?.transcription_provider || 'local';
-  document.querySelector(`input[name="transcription-provider"][value="${provider}"]`).checked = true;
-  document.getElementById('local-whisper-options').style.display = provider === 'local' ? 'block' : 'none';
+  const providerRadio = document.querySelector(`input[name="transcription-provider"][value="${provider}"]`)
+    || document.querySelector('input[name="transcription-provider"][value="local"]');
+  providerRadio.checked = true;
+  updateProviderOptions(providerRadio.value);
   if (settings?.ingestion?.local_whisper_model) {
     document.getElementById('whisper-model').value = settings.ingestion.local_whisper_model;
   }
+  document.getElementById('openai-transcription-model').value = settings?.ingestion?.openai_transcription_model || 'whisper-1';
+  document.getElementById('custom-transcription-endpoint').value = settings?.ingestion?.custom_transcription_endpoint || '';
+  document.getElementById('custom-transcription-model').value = settings?.ingestion?.custom_transcription_model || '';
+  document.getElementById('openai-summary-model').value = settings?.ingestion?.openai_summary_model || 'gpt-4o-mini';
 
-  const [hasGroq, hasAnthropic, hasSupabase] = await Promise.all([
+  const [hasGroq, hasOpenAI, hasAnthropic, hasCustomTranscription, hasSupabase] = await Promise.all([
     window.electronAPI.hasGroqKey(),
+    window.electronAPI.hasOpenAIKey(),
     window.electronAPI.hasAnthropicKey(),
+    window.electronAPI.hasCustomTranscriptionKey(),
     window.electronAPI.hasSupabaseKey(),
   ]);
   setKeyStatus('groq-status', hasGroq);
+  setKeyStatus('openai-status', hasOpenAI);
   setKeyStatus('anthropic-status', hasAnthropic);
+  setKeyStatus('custom-transcription-status', hasCustomTranscription);
   setKeyStatus('supabase-status', hasSupabase);
+  document.getElementById('summary-provider').value = settings?.ingestion?.summary_provider || (hasAnthropic ? 'anthropic' : (hasOpenAI ? 'openai' : 'off'));
+  updateSummaryOptions();
 
   if (settings.team_name) {
     const el = document.getElementById('team-name-display');
@@ -376,6 +435,14 @@ async function saveGroqKey() {
   document.getElementById('groq-key').value = '';
 }
 async function clearGroqKey() { await window.electronAPI.clearGroqKey(); setKeyStatus('groq-status', false); }
+async function saveOpenAIKey() {
+  const val = document.getElementById('openai-key').value.trim();
+  if (!val) return;
+  const ok = await window.electronAPI.setOpenAIKey(val);
+  setKeyStatus('openai-status', ok);
+  document.getElementById('openai-key').value = '';
+}
+async function clearOpenAIKey() { await window.electronAPI.clearOpenAIKey(); setKeyStatus('openai-status', false); }
 async function saveAnthropicKey() {
   const val = document.getElementById('anthropic-key').value.trim();
   if (!val) return;
@@ -384,6 +451,14 @@ async function saveAnthropicKey() {
   document.getElementById('anthropic-key').value = '';
 }
 async function clearAnthropicKey() { await window.electronAPI.clearAnthropicKey(); setKeyStatus('anthropic-status', false); }
+async function saveCustomTranscriptionKey() {
+  const val = document.getElementById('custom-transcription-key').value.trim();
+  if (!val) return;
+  const ok = await window.electronAPI.setCustomTranscriptionKey(val);
+  setKeyStatus('custom-transcription-status', ok);
+  document.getElementById('custom-transcription-key').value = '';
+}
+async function clearCustomTranscriptionKey() { await window.electronAPI.clearCustomTranscriptionKey(); setKeyStatus('custom-transcription-status', false); }
 
 function showResult(elId, ok, msg) {
   const el = document.getElementById(elId);
@@ -397,18 +472,50 @@ function escHtml(str) {
 }
 
 // ── Transcription ──
+function updateProviderOptions(value) {
+  document.getElementById('local-whisper-options').style.display = value === 'local' ? 'block' : 'none';
+  document.getElementById('openai-transcription-options').style.display = value === 'openai' ? 'block' : 'none';
+  document.getElementById('custom-transcription-options').style.display = value === 'custom' ? 'block' : 'none';
+}
+
+function updateSummaryOptions() {
+  document.getElementById('openai-summary-options').style.display =
+    document.getElementById('summary-provider').value === 'openai' ? 'block' : 'none';
+}
+
 async function setProvider(value) {
   if (!settings.ingestion) settings.ingestion = {};
   settings.ingestion.transcription_provider = value;
-  document.getElementById('local-whisper-options').style.display = value === 'local' ? 'block' : 'none';
+  updateProviderOptions(value);
   await saveSettings();
-  showResult('provider-status', true, value === 'local' ? 'Using Local Whisper (MLX)' : 'Using Groq API with your key');
+  const labels = {
+    local: 'Using Local Whisper (MLX)',
+    groq: 'Using Groq API with your key',
+    openai: 'Using OpenAI API with your key',
+    custom: 'Using custom compatible API with your key',
+  };
+  showResult('provider-status', true, labels[value] || 'Transcription provider updated');
 }
 
 async function setWhisperModel(value) {
   if (!settings.ingestion) settings.ingestion = {};
   settings.ingestion.local_whisper_model = value;
   await saveSettings();
+}
+
+async function setIngestionField(key, value) {
+  if (!settings.ingestion) settings.ingestion = {};
+  settings.ingestion[key] = value || null;
+  await saveSettings();
+}
+
+async function setSummaryProvider(value) {
+  if (!settings.ingestion) settings.ingestion = {};
+  settings.ingestion.summary_provider = value;
+  updateSummaryOptions();
+  await saveSettings();
+  const labels = { off: 'AI summaries disabled', anthropic: 'Using Claude with your Anthropic key', openai: 'Using OpenAI with your key' };
+  showResult('provider-status', true, labels[value] || 'Summary provider updated');
 }
 
 // ── Shared media path ──

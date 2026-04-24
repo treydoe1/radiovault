@@ -381,6 +381,10 @@ function splitAudioChunks(inputPath, ffmpegPath, chunkDurationSec = 1200) {
 
 const DEFAULT_ENDPOINT = 'https://api.groq.com/openai/v1/audio/transcriptions';
 const DEFAULT_MODEL    = 'whisper-large-v3';
+const OPENAI_TRANSCRIPTION_ENDPOINT = 'https://api.openai.com/v1/audio/transcriptions';
+const OPENAI_TRANSCRIPTION_MODEL = 'whisper-1';
+const OPENAI_SUMMARY_ENDPOINT = 'https://api.openai.com/v1/chat/completions';
+const OPENAI_SUMMARY_MODEL = 'gpt-4o-mini';
 const DEFAULT_TRANSCRIPTION_TIMEOUT_MS = 10 * 60 * 1000;
 
 // ── Local MLX Whisper ──
@@ -533,6 +537,32 @@ function getProviderLabel(endpoint) {
   } catch (_) { return 'Transcription provider'; }
 }
 
+function getTranscriptionApiConfig(ing) {
+  const provider = ing.transcription_provider || (ing.groq_api_key ? 'groq' : 'local');
+  if (provider === 'openai') {
+    return {
+      provider,
+      endpoint: OPENAI_TRANSCRIPTION_ENDPOINT,
+      model: ing.openai_transcription_model || OPENAI_TRANSCRIPTION_MODEL,
+      apiKey: (ing.openai_api_key || '').trim(),
+    };
+  }
+  if (provider === 'custom') {
+    return {
+      provider,
+      endpoint: ing.custom_transcription_endpoint || ing.api_endpoint || DEFAULT_ENDPOINT,
+      model: ing.custom_transcription_model || ing.api_model || DEFAULT_MODEL,
+      apiKey: (ing.custom_transcription_api_key || '').trim(),
+    };
+  }
+  return {
+    provider,
+    endpoint: DEFAULT_ENDPOINT,
+    model: ing.groq_model || ing.api_model || DEFAULT_MODEL,
+    apiKey: (ing.groq_api_key || '').trim(),
+  };
+}
+
 async function transcribeWithWhisperAPI(audioPath, apiKey, {
   endpoint = DEFAULT_ENDPOINT,
   model = DEFAULT_MODEL,
@@ -653,19 +683,8 @@ async function chunkAndTranscribe(audioPath, apiKey, { endpoint, model, ffmpegPa
 
 // ── AI SUMMARY ─────────────────────────────────────────────────────────────
 
-/**
- * Generate an AI summary and key moments from a transcript using the Anthropic API.
- * Makes a direct HTTPS call -- no SDK dependency needed.
- */
-async function generateAiSummary(transcriptText, itemTitle, anthropicApiKey, onProgress) {
-  if (!anthropicApiKey) {
-    onProgress?.('  Skipping AI summary (no Anthropic API key)');
-    return null;
-  }
-
-  onProgress?.('  Generating AI summary and key moments...');
-
-  const prompt = `You are analyzing a radio broadcast transcript from Clemson Athletics (Tiger Network).
+function buildSummaryPrompt(transcriptText, itemTitle) {
+  return `You are analyzing a radio broadcast transcript from Clemson Athletics (Tiger Network).
 
 Title: ${itemTitle}
 
@@ -686,6 +705,32 @@ Respond in this exact JSON format:
 }
 
 Return ONLY the JSON, no other text.`;
+}
+
+function parseSummaryJson(text) {
+  const raw = String(text || '').trim();
+  if (!raw) throw new Error('Empty summary response');
+  try {
+    return JSON.parse(raw);
+  } catch (_) {
+    const match = raw.match(/\{[\s\S]*\}/);
+    if (!match) throw new Error('Summary response was not JSON');
+    return JSON.parse(match[0]);
+  }
+}
+
+/**
+ * Generate an AI summary and key moments from a transcript using Anthropic.
+ * Makes a direct HTTPS call -- no SDK dependency needed.
+ */
+async function generateAnthropicSummary(transcriptText, itemTitle, anthropicApiKey, onProgress) {
+  if (!anthropicApiKey) {
+    onProgress?.('  Skipping Claude summary (no Anthropic API key)');
+    return null;
+  }
+
+  onProgress?.('  Generating Claude summary and key moments...');
+  const prompt = buildSummaryPrompt(transcriptText, itemTitle);
 
   const requestBody = JSON.stringify({
     model: 'claude-sonnet-4-20250514',
@@ -712,27 +757,102 @@ Return ONLY the JSON, no other text.`;
         try {
           const json = JSON.parse(Buffer.concat(chunks).toString('utf8'));
           if (res.statusCode !== 200) {
-            onProgress?.(`  AI summary warning: API error ${res.statusCode}`);
+            onProgress?.(`  Claude summary warning: API error ${res.statusCode}`);
             return resolve(null);
           }
           const text = json.content?.[0]?.text || '';
-          const parsed = JSON.parse(text);
-          onProgress?.(`  AI summary generated (${(parsed.key_moments || []).length} key moments)`);
+          const parsed = parseSummaryJson(text);
+          onProgress?.(`  Claude summary generated (${(parsed.key_moments || []).length} key moments)`);
           resolve(parsed);
         } catch (e) {
-          onProgress?.(`  AI summary warning: ${e.message}`);
+          onProgress?.(`  Claude summary warning: ${e.message}`);
           resolve(null);
         }
       });
     });
     req.on('error', (err) => {
-      onProgress?.(`  AI summary warning: ${err.message}`);
+      onProgress?.(`  Claude summary warning: ${err.message}`);
       resolve(null);
     });
     req.on('timeout', () => { req.destroy(); resolve(null); });
     req.write(requestBody);
     req.end();
   });
+}
+
+async function generateOpenAISummary(transcriptText, itemTitle, openaiApiKey, { endpoint = OPENAI_SUMMARY_ENDPOINT, model = OPENAI_SUMMARY_MODEL, onProgress } = {}) {
+  if (!openaiApiKey) {
+    onProgress?.('  Skipping OpenAI summary (no OpenAI API key)');
+    return null;
+  }
+
+  onProgress?.(`  Generating OpenAI summary and key moments (${model})...`);
+  const parsedUrl = new URL(endpoint);
+  const transport = parsedUrl.protocol === 'https:' ? https : http;
+  const requestBody = JSON.stringify({
+    model,
+    messages: [{ role: 'user', content: buildSummaryPrompt(transcriptText, itemTitle) }],
+    response_format: { type: 'json_object' },
+  });
+
+  return new Promise((resolve) => {
+    const req = transport.request({
+      hostname: parsedUrl.hostname,
+      port: parsedUrl.port || undefined,
+      path: parsedUrl.pathname + (parsedUrl.search || ''),
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openaiApiKey}`,
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(requestBody),
+      },
+      timeout: 60000,
+    }, (res) => {
+      const chunks = [];
+      res.on('data', c => chunks.push(c));
+      res.on('end', () => {
+        try {
+          const json = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+          if (res.statusCode !== 200) {
+            const msg = json?.error?.message || JSON.stringify(json);
+            onProgress?.(`  OpenAI summary warning: API error ${res.statusCode}: ${msg}`);
+            return resolve(null);
+          }
+          const text = json.choices?.[0]?.message?.content || '';
+          const parsed = parseSummaryJson(text);
+          onProgress?.(`  OpenAI summary generated (${(parsed.key_moments || []).length} key moments)`);
+          resolve(parsed);
+        } catch (e) {
+          onProgress?.(`  OpenAI summary warning: ${e.message}`);
+          resolve(null);
+        }
+      });
+    });
+    req.on('error', (err) => {
+      onProgress?.(`  OpenAI summary warning: ${err.message}`);
+      resolve(null);
+    });
+    req.on('timeout', () => { req.destroy(); resolve(null); });
+    req.write(requestBody);
+    req.end();
+  });
+}
+
+async function generateAiSummary(transcriptText, itemTitle, {
+  summaryProvider,
+  anthropicApiKey,
+  openaiApiKey,
+  openaiSummaryModel,
+  onProgress,
+} = {}) {
+  if (summaryProvider === 'off') return null;
+  if (summaryProvider === 'openai') {
+    return generateOpenAISummary(transcriptText, itemTitle, openaiApiKey, {
+      model: openaiSummaryModel || OPENAI_SUMMARY_MODEL,
+      onProgress,
+    });
+  }
+  return generateAnthropicSummary(transcriptText, itemTitle, anthropicApiKey, onProgress);
 }
 
 // ── DATABASE ────────────────────────────────────────────────────────────────
@@ -794,7 +914,7 @@ async function pushToSupabase(item, clips, db, onProgress) {
 async function processItem(item, db, taxonomyList, taxonomyMap, {
   apiKey, apiEndpoint, apiModel, ffmpegPath, cacheDir,
   onProgress, force, reclip, teaserThreshold, useLocalWhisper, localWhisperModel,
-  anthropicApiKey, shouldCancel,
+  summaryProvider, anthropicApiKey, openaiApiKey, openaiSummaryModel, shouldCancel,
 }) {
   if (db.content_items[item.id]?.processed_at && !force && !reclip) {
     return { updated: false, reason: 'already_processed' };
@@ -922,8 +1042,14 @@ async function processItem(item, db, taxonomyList, taxonomyMap, {
   // AI summary + key moments
   let summary = null;
   let keyMoments = [];
-  if (transcriptData?.full_text && !reclip && anthropicApiKey) {
-    const aiResult = await generateAiSummary(transcriptData.full_text, item.title, anthropicApiKey, onProgress);
+  if (transcriptData?.full_text && !reclip && summaryProvider !== 'off') {
+    const aiResult = await generateAiSummary(transcriptData.full_text, item.title, {
+      summaryProvider,
+      anthropicApiKey,
+      openaiApiKey,
+      openaiSummaryModel,
+      onProgress,
+    });
     if (aiResult) {
       summary = aiResult.summary || null;
       keyMoments = aiResult.key_moments || [];
@@ -987,13 +1113,17 @@ async function processItem(item, db, taxonomyList, taxonomyMap, {
 
 async function runIngest({ settings, dbPath, cacheDir, ffmpegPath, onProgress = () => {}, onDbUpdate, force = false, reclip = false, shouldCancel } = {}) {
   const ing = settings?.ingestion || {};
-  const transcriptionProvider = ing.transcription_provider || (ing.groq_api_key ? 'groq' : 'local');
+  const transcriptionConfig = getTranscriptionApiConfig(ing);
+  const transcriptionProvider = transcriptionConfig.provider;
   const useLocalWhisper = transcriptionProvider === 'local';
   const localWhisperModel = ing.local_whisper_model || 'large';
-  const apiEndpoint = ing.api_endpoint || DEFAULT_ENDPOINT;
-  const apiModel    = ing.api_model    || DEFAULT_MODEL;
-  const apiKey      = (ing.groq_api_key || '').trim();
+  const apiEndpoint = transcriptionConfig.endpoint;
+  const apiModel    = transcriptionConfig.model;
+  const apiKey      = transcriptionConfig.apiKey;
   const anthropicApiKey = (ing.anthropic_api_key || '').trim();
+  const openaiApiKey = (ing.openai_api_key || '').trim();
+  const summaryProvider = ing.summary_provider || (anthropicApiKey ? 'anthropic' : (openaiApiKey ? 'openai' : 'off'));
+  const openaiSummaryModel = ing.openai_summary_model || OPENAI_SUMMARY_MODEL;
   const teaserThreshold = Number(ing.teaser_score_threshold ?? TEASER_MIN_SCORE_DEFAULT);
   const ingestCutoffDate = ing.ingest_cutoff_date || null;
 
@@ -1046,7 +1176,7 @@ async function runIngest({ settings, dbPath, cacheDir, ffmpegPath, onProgress = 
     const result = await processItem(item, db, taxonomyList, taxonomyMap, {
       apiKey, apiEndpoint, apiModel, ffmpegPath, cacheDir,
       onProgress, force, reclip, teaserThreshold, useLocalWhisper, localWhisperModel,
-      anthropicApiKey, shouldCancel,
+      summaryProvider, anthropicApiKey, openaiApiKey, openaiSummaryModel, shouldCancel,
     });
     if (!result?.updated) continue;
     saveDb(db, dbPath);
