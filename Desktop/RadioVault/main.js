@@ -29,6 +29,12 @@ function getSettings() {
   try { return JSON.parse(fs.readFileSync(SETTINGS_PATH, 'utf8')); } catch { return {}; }
 }
 
+function sanitizeIngestionConfig(ingestion) {
+  if (!ingestion || typeof ingestion !== 'object') return {};
+  const { groq_api_key, anthropic_api_key, ...safeIngestion } = ingestion;
+  return safeIngestion;
+}
+
 function expandHome(p) {
   return p ? p.replace(/^~/, os.homedir()) : p;
 }
@@ -756,16 +762,13 @@ ipcMain.handle('load-team-config', async () => {
 
     await keytar.setPassword(KEYCHAIN_SERVICE, SUPABASE_URL_ACCOUNT, config.supabase_url);
     await keytar.setPassword(KEYCHAIN_SERVICE, SUPABASE_KEY_ACCOUNT, config.supabase_service_key);
-    if (config.groq_api_key) await keytar.setPassword(KEYCHAIN_SERVICE, GROQ_KEY_ACCOUNT, config.groq_api_key);
-    if (config.anthropic_api_key) await keytar.setPassword(KEYCHAIN_SERVICE, ANTHROPIC_KEY_ACCOUNT, config.anthropic_api_key);
-
     supabaseClient.init(config.supabase_url, config.supabase_service_key);
 
     const settingsData = getSettings();
     settingsData.team_name = config.team_name;
     settingsData._setup_complete = true;
     if (config.feed_urls && config.feed_urls.length) settingsData.feed_urls = config.feed_urls;
-    if (config.ingestion) settingsData.ingestion = { ...(settingsData.ingestion || {}), ...config.ingestion };
+    if (config.ingestion) settingsData.ingestion = { ...(settingsData.ingestion || {}), ...sanitizeIngestionConfig(config.ingestion) };
     if (config.shared_media_path) settingsData.shared_media_path = config.shared_media_path;
     await atomicWriteJsonAsync(SETTINGS_PATH, settingsData);
 
@@ -790,9 +793,12 @@ ipcMain.handle('load-team-config', async () => {
 
     const loaded = ['supabase'];
     if (config.feed_urls?.length) loaded.push(`${config.feed_urls.length} feeds`);
-    if (config.groq_api_key) loaded.push('groq');
-    if (config.anthropic_api_key) loaded.push('anthropic');
-    return { ok: true, msg: 'Team "' + config.team_name + '" configured. Loaded: ' + loaded.join(', ') + '. Synced from cloud.' };
+    const skippedPersonalKeys = !!(config.groq_api_key || config.anthropic_api_key || config.ingestion?.groq_api_key || config.ingestion?.anthropic_api_key);
+    return {
+      ok: true,
+      msg: 'Team "' + config.team_name + '" configured. Loaded: ' + loaded.join(', ') + '. Synced from cloud.'
+        + (skippedPersonalKeys ? ' Personal API keys were not imported; add your own in Settings.' : '')
+    };
   } catch (e) {
     return { ok: false, msg: 'Error: ' + e.message };
   }
@@ -804,8 +810,6 @@ ipcMain.handle('export-team-config', async () => {
     const settingsData = getSettings();
     const url = await keytar.getPassword(KEYCHAIN_SERVICE, SUPABASE_URL_ACCOUNT);
     const key = await keytar.getPassword(KEYCHAIN_SERVICE, SUPABASE_KEY_ACCOUNT);
-    const groq = await keytar.getPassword(KEYCHAIN_SERVICE, GROQ_KEY_ACCOUNT);
-    const anthropic = await keytar.getPassword(KEYCHAIN_SERVICE, ANTHROPIC_KEY_ACCOUNT);
 
     if (!url || !key) return { ok: false, msg: 'No Supabase credentials to export.' };
 
@@ -814,11 +818,9 @@ ipcMain.handle('export-team-config', async () => {
       supabase_url: url,
       supabase_service_key: key,
       feed_urls: settingsData.feed_urls || [],
-      ingestion: settingsData.ingestion || {},
+      ingestion: sanitizeIngestionConfig(settingsData.ingestion),
       shared_media_path: settingsData.shared_media_path || null,
     };
-    if (groq) config.groq_api_key = groq;
-    if (anthropic) config.anthropic_api_key = anthropic;
 
     const savePath = await dialog.showSaveDialog({
       title: 'Export Team Config',

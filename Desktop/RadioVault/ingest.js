@@ -987,7 +987,8 @@ async function processItem(item, db, taxonomyList, taxonomyMap, {
 
 async function runIngest({ settings, dbPath, cacheDir, ffmpegPath, onProgress = () => {}, onDbUpdate, force = false, reclip = false, shouldCancel } = {}) {
   const ing = settings?.ingestion || {};
-  const useLocalWhisper = ing.transcription_provider === 'local';
+  const transcriptionProvider = ing.transcription_provider || (ing.groq_api_key ? 'groq' : 'local');
+  const useLocalWhisper = transcriptionProvider === 'local';
   const localWhisperModel = ing.local_whisper_model || 'large';
   const apiEndpoint = ing.api_endpoint || DEFAULT_ENDPOINT;
   const apiModel    = ing.api_model    || DEFAULT_MODEL;
@@ -996,7 +997,7 @@ async function runIngest({ settings, dbPath, cacheDir, ffmpegPath, onProgress = 
   const teaserThreshold = Number(ing.teaser_score_threshold ?? TEASER_MIN_SCORE_DEFAULT);
   const ingestCutoffDate = ing.ingest_cutoff_date || null;
 
-  if (!reclip && !useLocalWhisper && !apiKey) throw new Error('API key not configured. Open Settings and enter your Groq key, or switch to Local Whisper.');
+  if (!reclip && !useLocalWhisper && !apiKey) throw new Error('Transcription API key not configured. Open Settings and add your own API key, or switch to Local Whisper.');
 
   fs.mkdirSync(cacheDir, { recursive: true });
   const db = loadDb(dbPath);

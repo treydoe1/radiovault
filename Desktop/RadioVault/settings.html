@@ -80,7 +80,7 @@
   <!-- TEAM SETUP -->
   <div class="section">
     <h2>Team Setup</h2>
-    <p>Import a team config file to load Supabase, Groq, and Anthropic credentials in one step.</p>
+    <p>Import shared feed and Supabase settings. Transcription and AI summary API keys are personal; add your own below or use Local Whisper.</p>
     <div id="team-name-display" style="font-weight:600; margin-bottom:10px; display:none;"></div>
     <div style="display:flex; gap:8px;">
       <button class="btn btn-primary btn-sm" onclick="importTeam()">Import Config</button>
@@ -132,8 +132,8 @@
 
   <!-- API KEYS -->
   <div class="section">
-    <h2>API Keys</h2>
-    <p>Stored in macOS Keychain. Never written to disk.</p>
+    <h2>Personal API Keys</h2>
+    <p>Bring your own API keys for cloud features. They are stored in macOS Keychain and are never exported in team config files.</p>
     <label>Groq API Key <span class="key-status" id="groq-status"></span></label>
     <div class="feed-row">
       <input type="password" id="groq-key" placeholder="gsk_..." />
@@ -152,7 +152,7 @@
   <!-- TRANSCRIPTION -->
   <div class="section">
     <h2>Transcription</h2>
-    <p>Local Whisper runs on-device (Apple Silicon). Groq is faster but requires an API key. For long broadcasts (2+ hours), Local Whisper is recommended.</p>
+    <p>Use Local Whisper on-device, or bring your own Groq API key for cloud transcription. For long broadcasts (2+ hours), Local Whisper is recommended.</p>
     <div style="display:flex; gap:12px; margin-bottom:16px;">
       <label style="display:flex; align-items:center; gap:6px; cursor:pointer; margin:0;">
         <input type="radio" name="transcription-provider" value="local" onchange="setProvider('local')" />
@@ -237,7 +237,7 @@ async function loadSettings() {
 
   renderFeeds();
 
-  const provider = settings?.ingestion?.transcription_provider || 'groq';
+  const provider = settings?.ingestion?.transcription_provider || 'local';
   document.querySelector(`input[name="transcription-provider"][value="${provider}"]`).checked = true;
   document.getElementById('local-whisper-options').style.display = provider === 'local' ? 'block' : 'none';
   if (settings?.ingestion?.local_whisper_model) {
@@ -402,7 +402,7 @@ async function setProvider(value) {
   settings.ingestion.transcription_provider = value;
   document.getElementById('local-whisper-options').style.display = value === 'local' ? 'block' : 'none';
   await saveSettings();
-  showResult('provider-status', true, value === 'local' ? 'Using Local Whisper (MLX)' : 'Using Groq API');
+  showResult('provider-status', true, value === 'local' ? 'Using Local Whisper (MLX)' : 'Using Groq API with your key');
 }
 
 async function setWhisperModel(value) {
