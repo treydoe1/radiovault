@@ -4,3 +4,6 @@ dist/
 *.zip
 *.blockmap
 .DS_Store
+.claude/
+AGENTS.md
+CLAUDE.md
