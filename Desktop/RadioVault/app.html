@@ -517,6 +517,8 @@
   .transcript-segment:hover { background: rgba(82,45,128,0.04); }
   .transcript-segment.playing { background: var(--playing-segment); }
   .transcript-segment.search-match .seg-text { background: var(--search-match); border-radius: 2px; }
+  .transcript-segment.current-search-match { outline: 2px solid rgba(82,45,128,0.24); }
+  .transcript-segment mark.current-search-hit { background: #ffcf33; color: inherit; }
   .transcript-segment.clip-highlight { background: var(--clip-highlight); }
   .transcript-segment.key-moment-highlight { border-left: 3px solid var(--accent); }
   .transcript-segment.selected { background: rgba(246,103,51,0.18); }
@@ -1608,7 +1610,10 @@ function renderClipMarkers(item) {
 function clearTranscriptSearchState({ clearInput = false } = {}) {
   searchMatches = [];
   searchMatchIndex = -1;
-  document.querySelectorAll('.transcript-segment.search-match').forEach(el => el.classList.remove('search-match'));
+  document.querySelectorAll('.transcript-segment.search-match, .transcript-segment.current-search-match').forEach(el => {
+    el.classList.remove('search-match', 'current-search-match');
+  });
+  document.querySelectorAll('.transcript-segment mark.current-search-hit').forEach(el => el.classList.remove('current-search-hit'));
   document.querySelectorAll('.transcript-segment .seg-text').forEach(el => {
     if (el.querySelector('mark')) el.textContent = el.textContent;
   });
@@ -1628,7 +1633,7 @@ function onTranscriptSearch(query) {
   clearTranscriptSearchState();
   if (!query.trim()) return;
 
-  // Same syntax as global search: comma = OR, (words) = AND, whole-word matching
+  // Same syntax as global search, but navigation tracks real highlighted mentions.
   const clauses = parseSearchQuery(query);
   if (clauses.length === 0) return;
 
@@ -1638,41 +1643,23 @@ function onTranscriptSearch(query) {
   allSegs.forEach(el => {
     const segText = el.querySelector('.seg-text');
     const text = segText.textContent;
-
-    // Check within a wider window: this segment + neighbors
-    const idx = parseInt(el.dataset.index);
-    const si = Math.max(0, idx - 2);
-    const ei = Math.min(allSegs.length - 1, idx + 2);
-    let windowText = '';
-    for (let j = si; j <= ei; j++) {
-      windowText += ' ' + allSegs[j].querySelector('.seg-text').textContent.toLowerCase();
+    const originalHtml = escHtml(text);
+    let highlighted = originalHtml;
+    for (const clause of clauses) {
+      if (clause.type === 'and') {
+        for (const w of clause.words) highlighted = highlightPhrase(highlighted, w);
+      } else {
+        highlighted = highlightPhrase(highlighted, clause.phrase);
+      }
     }
 
-    const matched = clauses.some(clause => {
-      if (clause.type === 'and') {
-        return clause.words.every(w => matchWholeWord(windowText, w));
-      } else {
-        return matchWholeWord(windowText, clause.phrase);
-      }
-    });
-
-    if (matched) {
+    if (highlighted !== originalHtml) {
       el.classList.add('search-match');
-      searchMatches.push(el);
-
-      // Highlight matching terms in the segment text
-      let highlighted = escHtml(text);
-      for (const clause of clauses) {
-        if (clause.type === 'and') {
-          for (const w of clause.words) highlighted = highlightPhrase(highlighted, w);
-        } else {
-          highlighted = highlightPhrase(highlighted, clause.phrase);
-        }
-      }
       segText.innerHTML = highlighted;
     }
   });
 
+  searchMatches = Array.from(document.querySelectorAll('.transcript-segment.search-match mark'));
   document.getElementById('match-info').textContent = searchMatches.length > 0
     ? `${searchMatches.length} match${searchMatches.length === 1 ? '' : 'es'}`
     : 'No matches';
@@ -1697,8 +1684,14 @@ function prevMatch() {
 
 function scrollToMatch() {
   if (searchMatchIndex < 0 || searchMatchIndex >= searchMatches.length) return;
-  const el = searchMatches[searchMatchIndex];
-  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  document.querySelectorAll('.transcript-segment.current-search-match').forEach(el => el.classList.remove('current-search-match'));
+  document.querySelectorAll('.transcript-segment mark.current-search-hit').forEach(el => el.classList.remove('current-search-hit'));
+
+  const mark = searchMatches[searchMatchIndex];
+  mark.classList.add('current-search-hit');
+  const el = mark.closest('.transcript-segment');
+  if (el) el.classList.add('current-search-match');
+  mark.scrollIntoView({ behavior: 'smooth', block: 'center' });
   document.getElementById('match-info').textContent =
     `${searchMatchIndex + 1} of ${searchMatches.length}`;
 }

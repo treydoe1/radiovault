@@ -431,15 +431,15 @@ function parseTranscriptionJson(stdout) {
 }
 
 function compactTranscriptionError(message) {
-  const text = String(message || '').trim();
-  if (!text) return 'Unknown error';
-  return text
+  const lines = String(message || '').trim()
     .split(/\r?\n/)
     .map(line => line.trim())
-    .filter(Boolean)
-    .slice(0, 3)
-    .join(' | ')
-    .slice(0, 500);
+    .filter(Boolean);
+  if (!lines.length) return 'Unknown error';
+  const compact = lines.length <= 5
+    ? lines
+    : [...lines.slice(0, 2), '...', ...lines.slice(-3)];
+  return compact.join(' | ').slice(0, 500);
 }
 
 function transcribeWithMLX(audioPath, { model = 'large', timeoutMs = 90 * 60 * 1000, onProgress, ffmpegPath } = {}) {
@@ -453,10 +453,14 @@ function transcribeWithMLX(audioPath, { model = 'large', timeoutMs = 90 * 60 * 1
   const spawnEnv = Object.assign({}, process.env);
   if (ffmpegPath && ffmpegPath !== 'ffmpeg') {
     spawnEnv.PATH = path.dirname(ffmpegPath) + ':' + (spawnEnv.PATH || '');
+    spawnEnv.RADIOVAULT_FFMPEG_PATH = ffmpegPath;
+    spawnEnv.FFMPEG_PATH = ffmpegPath;
   }
 
   return new Promise((resolve, reject) => {
-    const proc = execFile('python3', [MLX_TRANSCRIBE_SCRIPT, audioPath, '--model', mlxModel], {
+    const args = [MLX_TRANSCRIBE_SCRIPT, audioPath, '--model', mlxModel];
+    if (ffmpegPath && path.isAbsolute(ffmpegPath)) args.push('--ffmpeg-path', ffmpegPath);
+    const proc = execFile('python3', args, {
       timeout: timeoutMs,
       maxBuffer: 50 * 1024 * 1024,
       detached: true,
@@ -490,10 +494,14 @@ function transcribeWithOpenAIWhisper(audioPath, { model = 'large', timeoutMs = 4
   const spawnEnv = Object.assign({}, process.env);
   if (ffmpegPath && ffmpegPath !== 'ffmpeg') {
     spawnEnv.PATH = path.dirname(ffmpegPath) + ':' + (spawnEnv.PATH || '');
+    spawnEnv.RADIOVAULT_FFMPEG_PATH = ffmpegPath;
+    spawnEnv.FFMPEG_PATH = ffmpegPath;
   }
 
   return new Promise((resolve, reject) => {
-    const proc = execFile('python3', [OPENAI_WHISPER_TRANSCRIBE_SCRIPT, audioPath, '--model', whisperModel], {
+    const args = [OPENAI_WHISPER_TRANSCRIBE_SCRIPT, audioPath, '--model', whisperModel];
+    if (ffmpegPath && path.isAbsolute(ffmpegPath)) args.push('--ffmpeg-path', ffmpegPath);
+    const proc = execFile('python3', args, {
       timeout: timeoutMs,
       maxBuffer: 50 * 1024 * 1024,
       detached: true,
